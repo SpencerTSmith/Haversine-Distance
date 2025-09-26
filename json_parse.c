@@ -67,6 +67,12 @@ b8 parser_incomplete(JSON_Parser *parser)
   return parser->at != (parser->source.count - 1);
 }
 
+b8 parser_token_is_literal(JSON_Parser *parser, String literal_string)
+{
+
+  return memcmp(parser_at(parser), literal_string.data, literal_string.count);
+}
+
 b8 is_numeric(u8 ch)
 {
   b8 result = false;
@@ -200,23 +206,34 @@ JSON_Token get_token(JSON_Parser *parser)
     break;
     case 't':
     {
-      String true_string = String("true");
-      if (memcmp(parser_at(parser), true_string.data, true_string.count))
+      String string = String("true");
+      if (parser_token_is_literal(parser, string))
       {
         // No 'value' for this
         token.type  = JSON_TOKEN_TRUE;
-        parser_advance(parser, true_string.count);
+        parser_advance(parser, string.count);
       }
     }
     break;
     case 'f':
     {
-      String false_string = String("false");
-      if (memcmp(parser_at(parser), false_string.data, false_string.count))
+      String string = String("false");
+      if (parser_token_is_literal(parser, string))
       {
         // No 'value' for this
         token.type  = JSON_TOKEN_FALSE;
-        parser_advance(parser, false_string.count);
+        parser_advance(parser, string.count);
+      }
+    }
+    break;
+    case 'n':
+    {
+      String string = String("null");
+      if (parser_token_is_literal(parser, string))
+      {
+        // No 'value' for this
+        token.type  = JSON_TOKEN_NULL;
+        parser_advance(parser, string.count);
       }
     }
     break;
@@ -245,8 +262,7 @@ JSON_Token *parse_json(u8 *buffer, usize buffer_count, const char *file_name)
   while (parser_incomplete(&parser))
   {
     JSON_Token token = get_token(&parser);
-    printf("Token: %.*s\n", (int)token.value.count, token.value.data);
-    printf("%lu, %lu\n", parser.at, parser.source.count);
+    printf("Token: %.*s\n", String_Format(token.value));
   }
 
   return NULL;

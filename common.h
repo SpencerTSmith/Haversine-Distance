@@ -114,6 +114,8 @@ struct String
 
 #define String(s) (String){(u8 *)s, STATIC_ARRAY_COUNT(s) - 1}
 
+#define String_Format(s) (int)s.count, s.data
+
 b8 strings_equal(String a, String b);
 
 /////////////////
