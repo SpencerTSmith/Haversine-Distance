@@ -50,14 +50,14 @@ typedef int32_t b32;
 typedef int16_t b16;
 typedef int8_t  b8;
 
-#define true  1
-#define false 0
-
 typedef double f64;
 typedef float  f32;
 
 typedef size_t    usize;
 typedef ptrdiff_t isize;
+
+#define true  1
+#define false 0
 
 #define CLAMP(value, min, max) (((value) < (min)) ? (min) : ((value) > (max)) ? (max) : (value))
 #define MAX(first, second) ((first) > (second) ? (first) : (second))
