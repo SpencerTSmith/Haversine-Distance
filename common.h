@@ -96,9 +96,9 @@ typedef ptrdiff_t isize;
 // You may prefer to do it in the traditional using the above ENUM_* macros
 //
 // NOTE(ss): Idea from https://philliptrudeau.com/blog/x-macro
-#define ENUM_TABLE(Enum_Name) \
-  enum Enum_Name              \
-  { Enum_Name(ENUM_MEMBER) }; \
+#define ENUM_TABLE(Enum_Name)                  \
+  typedef enum Enum_Name                       \
+  { Enum_Name(ENUM_MEMBER) } Enum_Name;        \
   static const char *Enum_Name ## _strings[] = \
   { Enum_Name(ENUM_STRING) };
 

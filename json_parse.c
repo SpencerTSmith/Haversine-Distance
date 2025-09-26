@@ -1,23 +1,21 @@
 #include "common.h"
 
-typedef enum JSON_Token_Type
-{
-  JSON_TOKEN_EOF,
+#define JSON_Token_Type(X)         \
+  X(JSON_TOKEN_EOF)                \
+  X(JSON_TOKEN_OPEN_CURLY_BRACE)   \
+  X(JSON_TOKEN_CLOSE_CURLY_BRACE)  \
+  X(JSON_TOKEN_OPEN_SQUARE_BRACE)  \
+  X(JSON_TOKEN_CLOSE_SQUARE_BRACE) \
+  X(JSON_TOKEN_COMMA)              \
+  X(JSON_TOKEN_COLON)              \
+  X(JSON_TOKEN_STRING)             \
+  X(JSON_TOKEN_NUMBER)             \
+  X(JSON_TOKEN_TRUE)               \
+  X(JSON_TOKEN_FALSE)              \
+  X(JSON_TOKEN_NULL)               \
+  X(JSON_TOKEN_COUNT)
 
-  JSON_TOKEN_OPEN_CURLY_BRACE,
-  JSON_TOKEN_CLOSE_CURLY_BRACE,
-  JSON_TOKEN_OPEN_SQUARE_BRACE,
-  JSON_TOKEN_CLOSE_SQUARE_BRACE,
-  JSON_TOKEN_COMMA,
-  JSON_TOKEN_COLON,
-  JSON_TOKEN_STRING,
-  JSON_TOKEN_NUMBER,
-  JSON_TOKEN_TRUE,
-  JSON_TOKEN_FALSE,
-  JSON_TOKEN_NULL,
-
-  JSON_TOKEN_COUNT,
-} JSON_Token_Type;
+ENUM_TABLE(JSON_Token_Type);
 
 typedef struct JSON_Token JSON_Token;
 struct JSON_Token
@@ -262,7 +260,8 @@ JSON_Token *parse_json(u8 *buffer, usize buffer_count, const char *file_name)
   while (parser_incomplete(&parser))
   {
     JSON_Token token = get_token(&parser);
-    printf("Token: %.*s\n", String_Format(token.value));
+    printf("Token :: Type = %s, Value = '%.*s', \n", JSON_Token_Type_strings[token.type],
+           String_Format(token.value));
   }
 
   return NULL;
