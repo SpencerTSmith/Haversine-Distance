@@ -32,6 +32,8 @@ extern "C"
 #include <string.h>
 #include <stdarg.h>
 
+#include <sys/stat.h>
+
 /////////////////
 // QOL/UTILITY
 ////////////////
@@ -50,14 +52,14 @@ typedef int32_t b32;
 typedef int16_t b16;
 typedef int8_t  b8;
 
+#define true  1
+#define false 0
+
 typedef double f64;
 typedef float  f32;
 
 typedef size_t    usize;
 typedef ptrdiff_t isize;
-
-#define true  1
-#define false 0
 
 #define CLAMP(value, min, max) (((value) < (min)) ? (min) : ((value) > (max)) ? (max) : (value))
 #define MAX(first, second) ((first) > (second) ? (first) : (second))
@@ -102,7 +104,11 @@ typedef ptrdiff_t isize;
   static const char *Enum_Name ## _strings[] = \
   { Enum_Name(ENUM_STRING) };
 
-usize read_file_to_memory(const char* name, u8 *buffer, usize buffer_size);
+// Only useful if you know exactly how big the file is ahead of time, otherwise probably put on an arena if don't know...
+// or use file_size()
+usize read_file_to_memory(const char *name, u8 *buffer, usize buffer_size);
+
+usize file_size(const char *name);
 
 // No Null terminated strings!
 typedef struct String String;
@@ -152,7 +158,7 @@ void log_message(Log_Level level, const char *file, usize line, const char *mess
 #define LOG_INFO(message, ...) log_message(LOG_INFO, __FILE__, __LINE__, message, ##__VA_ARGS__)
 
 // Just a little wrapper, don't have to && your message, and complains if you don't
-// give it a message
+// give it a message, which is good practice and probably ought to force myself to do it
 #ifdef DEBUG
   #define ASSERT(expr, message) assert(expr && message)
 #else
@@ -160,47 +166,61 @@ void log_message(Log_Level level, const char *file, usize line, const char *mess
 #endif // DEBUG
 
 /////////////////
-// MEMORY
+// MEMORY ARENA
 ////////////////
-typedef struct Bump Bump;
-struct Bump
+typedef enum Arena_Flags
 {
-  u8 *base;
+  ARENA_FLAG_NONE          = 0,
+  ARENA_FLAG_BUFFER_BACKED = 1 << 0, // Made with a provided backing buffer, therefore not responsible for freeing backing
+}
+Arena_Flags;
+
+typedef struct Arena Arena;
+struct Arena
+{
+  u8    *base;
   isize capacity;
   isize next_offset;
+
+  Arena_Flags flags;
 };
 
-#define EXT_BUMP_ALLOCATION 0xffffffff
+#define EXT_ARENA_ALLOCATION 0xffffffff
 
 // Allocates it's own memory
-Bump bump_make(isize reserve_size);
-void bump_free(Bump *bump);
+Arena arena_make(isize reserve_size);
+Arena arena_make_backed(u8 *backing_buffer, isize backing_size);
 
-void *bump_alloc(Bump *bump, isize size, isize alignment);
-void bump_pop_to(Bump *bump, isize offset);
-void bump_pop(Bump *bump, isize size);
-void bump_clear(Bump *bump);
+void arena_free(Arena *arena);
+
+void *arena_alloc(Arena *arena, isize size, isize alignment);
+void arena_pop_to(Arena *arena, isize offset);
+void arena_pop(Arena *arena, isize size);
+void arena_clear(Arena *arena);
+
+// Reads the entire thing and returns a pointer to the first byte
+u8 *read_file_to_arena(Arena *arena, const char *name);
 
 // Helper Macros ----------------------------------------------------------------
 
-// specify the bump, the number of elements, and the type... c(ounted)alloc
-#define bump_calloc(b, count, T) (T *)bump_alloc((b), sizeof(T) * (count), alignof(T))
+// specify the arena, the number of elements, and the type... c(ounted)alloc
+#define arena_calloc(b, count, T) (T *)arena_alloc((b), sizeof(T) * (count), alignof(T))
 
 // Useful for structs, much like new in other languages
-#define bump_new(b, T) bump_calloc(b, 1, T)
+#define arena_new(b, T) arena_calloc(b, 1, T)
 
 // Scratch Use Case -------------------------------------------------------------
 
 // We just want some temporary memory
-// ie we save the offset we wish to return to after using this bump as a scratch pad
+// ie we save the offset we wish to return to after using this arena as a scratch pad
 typedef struct Scratch Scratch;
 struct Scratch
 {
-  Bump *bump;
+  Arena *arena;
   isize offset_save;
 };
 
-Scratch scratch_begin(Bump *bump);
+Scratch scratch_begin(Arena *arena);
 void scratch_end(Scratch *scratch);
 
 #ifdef __cplusplus
@@ -359,6 +379,37 @@ usize read_file_to_memory(const char *name, u8 *buffer, usize buffer_size)
   return byte_count;
 }
 
+usize file_size(const char *name)
+{
+  // Seriously???
+#if _WIN32
+  struct __stat64 stats;
+  _stat64(name, &stats);
+#else
+  struct stat stats;
+  stat(name, &stats);
+#endif
+
+  return stats.st_size;
+}
+
+u8 *read_file_to_arena(Arena *arena, const char *name)
+{
+  usize buffer_size = file_size(name);
+
+  // Just in case we fail reading we won't commit any allocations
+  Arena save = *arena;
+  u8 *buffer = arena_calloc(arena, buffer_size, u8);
+
+  if (read_file_to_memory(name, buffer, buffer_size) != buffer_size)
+  {
+    LOG_ERROR("Unable to read file: %s", name);
+    *arena = save; // Rollback allocation
+  }
+
+  return buffer;
+}
+
 b8 strings_equal(String a, String b)
 {
   return a.count ==b.count && !memcmp(a.data, b.data, a.count);
@@ -396,85 +447,104 @@ void log_message(Log_Level level, const char *file, usize line, const char *mess
   fprintf(stream, "\n");
 }
 
-Bump bump_make(isize reserve_size)
+Arena arena_make(isize reserve_size)
 {
-  Bump bump = {0};
+  Arena arena = {0};
 
-  // NOTE(ss): this will return page-aligned memory (obviously) so I don't think it is
-  // nessecary to make sure that the alignment suffices
-  bump.base = (u8 *)calloc(reserve_size, 1);
+  // NOTE(ss): Calloc will return page-aligned memory so I don't think it is
+  // necessary to make sure that the alignment suffices
+  arena.base = (u8 *)calloc(reserve_size, 1);
 
-  if (bump.base == NULL)
+  if (arena.base == NULL)
   {
-    LOG_FATAL("Failed to allocate bump memory", EXT_BUMP_ALLOCATION);
-    return bump;
+    LOG_FATAL("Failed to allocate arena memory", EXT_ARENA_ALLOCATION);
+    return arena;
   }
 
-  bump.capacity = reserve_size;
-  bump.next_offset = 0;
+  arena.capacity = reserve_size;
+  arena.next_offset = 0;
 
-  return bump;
+  return arena;
 }
 
-void bump_free(Bump *bump)
+Arena arena_make_backed(u8 *backing_buffer, isize backing_size)
 {
-  free(bump->base);
+  ASSERT(backing_buffer != NULL, "Backing buffer for arena must not be NULL!");
+  ASSERT(backing_size   != 0,    "Backing buffer size for arena must not be 0!");
 
-  ZERO_STRUCT(bump);
+  Arena arena = {0};
+
+  arena.base     = backing_buffer;
+  arena.capacity = backing_size;
+
+  // Shitty cpp compilers complain we don't do it like this
+  arena.flags = (Arena_Flags)(arena.flags | ARENA_FLAG_BUFFER_BACKED);
+
+  return arena;
 }
 
-void *bump_alloc(Bump *bump, isize size, isize alignment) {
-  ASSERT(bump->base != NULL, "Bump memory is null");
+void arena_free(Arena *arena)
+{
+  if (!(arena->flags & ARENA_FLAG_BUFFER_BACKED))
+  {
+    free(arena->base);
+  }
 
-  isize aligned_offset = ALIGN_ROUND_UP(bump->next_offset, alignment);
+  ZERO_STRUCT(arena);
+}
+
+void *arena_alloc(Arena *arena, isize size, isize alignment) {
+  ASSERT(arena->base != NULL, "Arena memory is null");
+
+  isize aligned_offset = ALIGN_ROUND_UP(arena->next_offset, alignment);
 
   // Do we need a bigger buffer?
-  if (aligned_offset + size > bump->capacity)
+  if (aligned_offset + size > arena->capacity)
   {
     u64 needed_capacity = aligned_offset + size;
 
-    LOG_FATAL("Not enough memory in bump,\nNEED: %l bytes\nHAVE: %l bytes",
-              needed_capacity, bump->capacity, EXT_BUMP_ALLOCATION);
+    LOG_FATAL("Not enough memory in arena, NEED: %l bytes HAVE: %l bytes",
+              needed_capacity, arena->capacity, EXT_ARENA_ALLOCATION);
     return NULL;
   }
 
-  void *ptr = bump->base + aligned_offset;
+  void *ptr = arena->base + aligned_offset;
   ZERO_SIZE(ptr, size); // make sure memory is zeroed out
 
   // now move the offset
-  bump->next_offset = aligned_offset + size;
+  arena->next_offset = aligned_offset + size;
 
   return ptr;
 }
 
-void bump_pop_to(Bump *bump, isize offset)
+void arena_pop_to(Arena *arena, isize offset)
 {
-  ASSERT(offset < bump->next_offset,
-         "Failed to pop bump allocation, more than currently allocated");
+  ASSERT(offset < arena->next_offset,
+         "Failed to pop arena allocation, more than currently allocated");
 
   // Should we zero out the memory?
-  bump->next_offset = offset;
+  arena->next_offset = offset;
 }
 
-void bump_pop(Bump *bump, isize size)
+void arena_pop(Arena *arena, isize size)
 {
-  bump_pop_to(bump, bump->next_offset - size);
+  arena_pop_to(arena, arena->next_offset - size);
 }
 
-void bump_clear(Bump *bump)
+void arena_clear(Arena *arena)
 {
-  bump->next_offset = 0;
+  arena->next_offset = 0;
 }
 
-Scratch scratch_begin(Bump *bump)
+Scratch scratch_begin(Arena *arena)
 {
-  Scratch scratch = {.bump = bump, .offset_save = bump->next_offset};
+  Scratch scratch = {.arena = arena, .offset_save = arena->next_offset};
   return scratch;
 }
 
 void scratch_end(Scratch *scratch)
 {
-  bump_pop_to(scratch->bump, scratch->offset_save);
+  arena_pop_to(scratch->arena, scratch->offset_save);
   ZERO_STRUCT(scratch);
 }
 
