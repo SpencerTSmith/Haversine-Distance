@@ -198,8 +198,8 @@ void arena_pop_to(Arena *arena, isize offset);
 void arena_pop(Arena *arena, isize size);
 void arena_clear(Arena *arena);
 
-// Reads the entire thing and returns a pointer to the first byte
-u8 *read_file_to_arena(Arena *arena, const char *name);
+// Reads the entire thing and returns a String (just a byte slice)
+String read_file_to_arena(Arena *arena, const char *name);
 
 // Helper Macros ----------------------------------------------------------------
 
@@ -393,7 +393,7 @@ usize file_size(const char *name)
   return stats.st_size;
 }
 
-u8 *read_file_to_arena(Arena *arena, const char *name)
+String read_file_to_arena(Arena *arena, const char *name)
 {
   usize buffer_size = file_size(name);
 
@@ -407,7 +407,13 @@ u8 *read_file_to_arena(Arena *arena, const char *name)
     *arena = save; // Rollback allocation
   }
 
-  return buffer;
+  String result =
+  {
+    .data  = buffer,
+    .count = buffer_size,
+  };
+
+  return result;
 }
 
 b8 strings_equal(String a, String b)

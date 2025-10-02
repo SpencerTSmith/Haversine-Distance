@@ -6,12 +6,12 @@
 
 int main(int args_count, char **args)
 {
-  // if (args_count != DESIRED_ARG_COUNT)
-  // {
-  //   printf("Usage: %s [haversine_json] [solution_dump]\n", args[0]);
-  // }
+  if (args_count != DESIRED_ARG_COUNT)
+  {
+    printf("Usage: %s [haversine_json] [solution_dump]\n", args[0]);
+    return 1;
+  }
 
-  u8 buffer[KB(8)] = {0};
-
-  parse_json(buffer, KB(8), "haversine_pairs.json");
+  Arena arena = arena_make(KB(8));
+  parse_json(&arena, args[1]);
 }

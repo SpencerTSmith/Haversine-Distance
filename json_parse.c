@@ -241,18 +241,12 @@ JSON_Token get_token(JSON_Parser *parser)
 }
 
 // Returns the very first token
-JSON_Token *parse_json(u8 *buffer, usize buffer_count, const char *file_name)
+JSON_Token *parse_json(Arena *arena, const char *file_name)
 {
-  // TODO: redo read_file_to_memory, probaly should just return a bool on whether it failed or not
-  usize bytes_read = read_file_to_memory(file_name, buffer, buffer_count);
+  String source = read_file_to_arena(arena, file_name);
 
-  String source =
+  JSON_Parser parser =
   {
-    .data  = buffer,
-    .count = bytes_read,
-  };
-
-  JSON_Parser parser = {
     .source = source,
     .at     = 0,
   };
@@ -262,6 +256,76 @@ JSON_Token *parse_json(u8 *buffer, usize buffer_count, const char *file_name)
     JSON_Token token = get_token(&parser);
     printf("Token :: Type = %s, Value = '%.*s', \n", JSON_Token_Type_strings[token.type],
            String_Format(token.value));
+
+    switch (token.type)
+    {
+      case JSON_TOKEN_EOF:
+      {
+
+      }
+      break;
+      case JSON_TOKEN_OPEN_CURLY_BRACE:
+      {
+
+      }
+      break;
+      case JSON_TOKEN_CLOSE_CURLY_BRACE:
+      {
+
+      }
+      break;
+      case JSON_TOKEN_OPEN_SQUARE_BRACE:
+      {
+
+      }
+      break;
+      case JSON_TOKEN_CLOSE_SQUARE_BRACE:
+      {
+
+      }
+      break;
+      case JSON_TOKEN_COMMA:
+      {
+
+      }
+      break;
+      case JSON_TOKEN_COLON:
+      {
+
+      }
+      break;
+      case JSON_TOKEN_STRING:
+      {
+
+      }
+      break;
+      case JSON_TOKEN_NUMBER:
+      {
+
+      }
+      break;
+      case JSON_TOKEN_TRUE:
+      {
+
+      }
+      break;
+      case JSON_TOKEN_FALSE:
+      {
+
+      }
+      break;
+      case JSON_TOKEN_NULL:
+      {
+
+      }
+      break;
+
+      case JSON_TOKEN_COUNT:
+      {
+
+      }
+      break;
+    }
   }
 
   return NULL;
