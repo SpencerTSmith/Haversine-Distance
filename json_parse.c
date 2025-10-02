@@ -22,10 +22,16 @@ struct JSON_Token
 {
   JSON_Token_Type type;
   String          value;
+};
 
-  JSON_Token      *parent;
-  JSON_Token      *next_sibling;
-  JSON_Token      *first_child;
+typedef struct JSON_Object JSON_Object;
+struct JSON_Object
+{
+  String key;   // Not required for arrays, or the outer most object
+  String value;
+
+  JSON_Object *first_child;
+  JSON_Object *next_sibling;
 };
 
 typedef struct JSON_Parser JSON_Parser;
@@ -37,6 +43,7 @@ struct JSON_Parser
 
 u8 *parser_at(JSON_Parser *parser)
 {
+  ASSERT(parser->at < parser->source.count, "Attempted to read past parser source");
   return parser->source.data + parser->at;
 }
 
@@ -46,29 +53,20 @@ u8 *parser_peek(JSON_Parser *parser, usize advance)
   return parser_at(parser) + advance;
 }
 
-b8 parser_advance(JSON_Parser *parser, usize advance)
+void parser_advance(JSON_Parser *parser, usize advance)
 {
-  usize new_at = parser->at + advance;
-  if (new_at < parser->source.count)
-  {
-    parser->at = new_at;
-    return true;
-  }
-  else
-  {
-    return false;
-  }
+  parser->at += advance;
 }
 
 b8 parser_incomplete(JSON_Parser *parser)
 {
-  return parser->at != (parser->source.count - 1);
+  return parser->at < parser->source.count;
 }
 
 b8 parser_token_is_literal(JSON_Parser *parser, String literal_string)
 {
 
-  return memcmp(parser_at(parser), literal_string.data, literal_string.count);
+  return memcmp(parser_at(parser), literal_string.data, literal_string.count) == 0;
 }
 
 b8 is_numeric(u8 ch)
@@ -101,147 +99,210 @@ b8 is_numeric(u8 ch)
   return result;
 }
 
-JSON_Token get_token(JSON_Parser *parser)
+JSON_Token get_json_token(JSON_Parser *parser)
 {
   JSON_Token token = {0};
 
   // Eat white spaces
-  while (*parser_at(parser) == ' ' ||
-         *parser_at(parser) == '\n')
+  while (parser_incomplete(parser)  &&
+         (*parser_at(parser) == ' '  ||
+          *parser_at(parser) == '\n' ||
+          *parser_at(parser) == '\r' ||
+          *parser_at(parser) == '\t'))
   {
     // TODO: Probably just count all white space and then advance once for all at the end
     parser_advance(parser, 1);
   }
 
-  token.value.data = parser_at(parser);
-
-  switch (*parser_at(parser))
+  if (parser_incomplete(parser)) // If we've not reached the end of file
   {
-    case '{':
+    token.value.data = parser_at(parser);
+    switch (*parser_at(parser))
     {
-      token.type = JSON_TOKEN_OPEN_CURLY_BRACE;
-      token.value.count = 1;
-      parser_advance(parser, 1);
-    }
-    break;
-    case '}':
-    {
-      token.type = JSON_TOKEN_CLOSE_CURLY_BRACE;
-      token.value.count = 1;
-      parser_advance(parser, 1);
-    }
-    break;
-    case '[':
-    {
-      token.type = JSON_TOKEN_OPEN_SQUARE_BRACE;
-      token.value.count = 1;
-      parser_advance(parser, 1);
-    }
-    break;
-    case ']':
-    {
-      token.type = JSON_TOKEN_CLOSE_SQUARE_BRACE;
-      token.value.count = 1;
-      parser_advance(parser, 1);
-    }
-    break;
-    case ',':
-    {
-      token.type = JSON_TOKEN_COMMA;
-      token.value.count = 1;
-      parser_advance(parser, 1);
-    }
-    break;
-    case ':':
-    {
-      token.type = JSON_TOKEN_COLON;
-      token.value.count = 1;
-      parser_advance(parser, 1);
-    }
-    break;
-    case '"':
-    {
-      token.type = JSON_TOKEN_STRING;
-
-      parser_advance(parser, 1); // For the quotation mark
-
-      token.value.data = parser_at(parser); // Special case, we want the start to ignore the "
-
-      usize string_count = 0;
-      while (*parser_at(parser) != '"')
+      case '{':
       {
-        string_count += 1;
+        token.type = JSON_TOKEN_OPEN_CURLY_BRACE;
+        token.value.count = 1;
         parser_advance(parser, 1);
       }
-      token.value.count = string_count;
-
-      parser_advance(parser, 1); // For the other quotation mark
-    }
-    break;
-    case '0':
-    case '1':
-    case '2':
-    case '3':
-    case '4':
-    case '5':
-    case '6':
-    case '7':
-    case '8':
-    case '9':
-    case '.':
-    case '-':
-    {
-      token.type  = JSON_TOKEN_NUMBER;
-
-      usize digit_count = 0;
-      while (is_numeric(*parser_at(parser)))
+      break;
+      case '}':
       {
-        digit_count += 1;
+        token.type = JSON_TOKEN_CLOSE_CURLY_BRACE;
+        token.value.count = 1;
         parser_advance(parser, 1);
       }
-      token.value.count = digit_count;
-    }
-    break;
-    case 't':
-    {
-      String string = String("true");
-      if (parser_token_is_literal(parser, string))
+      break;
+      case '[':
       {
-        // No 'value' for this
-        token.type  = JSON_TOKEN_TRUE;
-        parser_advance(parser, string.count);
+        token.type = JSON_TOKEN_OPEN_SQUARE_BRACE;
+        token.value.count = 1;
+        parser_advance(parser, 1);
       }
-    }
-    break;
-    case 'f':
-    {
-      String string = String("false");
-      if (parser_token_is_literal(parser, string))
+      break;
+      case ']':
       {
-        // No 'value' for this
-        token.type  = JSON_TOKEN_FALSE;
-        parser_advance(parser, string.count);
+        token.type = JSON_TOKEN_CLOSE_SQUARE_BRACE;
+        token.value.count = 1;
+        parser_advance(parser, 1);
       }
-    }
-    break;
-    case 'n':
-    {
-      String string = String("null");
-      if (parser_token_is_literal(parser, string))
+      break;
+      case ',':
       {
-        // No 'value' for this
-        token.type  = JSON_TOKEN_NULL;
-        parser_advance(parser, string.count);
+        token.type = JSON_TOKEN_COMMA;
+        token.value.count = 1;
+        parser_advance(parser, 1);
       }
+      break;
+      case ':':
+      {
+        token.type = JSON_TOKEN_COLON;
+        token.value.count = 1;
+        parser_advance(parser, 1);
+      }
+      break;
+      case '"':
+      {
+        token.type = JSON_TOKEN_STRING;
+
+        parser_advance(parser, 1); // For the quotation mark
+
+        token.value.data = parser_at(parser); // Special case, we want the start to ignore the "
+
+        // TODO: account for escaped quotes
+        usize string_count = 0;
+        while (*parser_at(parser) != '"')
+        {
+          string_count += 1;
+          parser_advance(parser, 1);
+        }
+        token.value.count = string_count;
+
+        parser_advance(parser, 1); // For the other quotation mark
+      }
+      break;
+      case '0':
+      case '1':
+      case '2':
+      case '3':
+      case '4':
+      case '5':
+      case '6':
+      case '7':
+      case '8':
+      case '9':
+      case '.':
+      case '-':
+      {
+        token.type  = JSON_TOKEN_NUMBER;
+
+        usize digit_count = 0;
+        while (is_numeric(*parser_at(parser)))
+        {
+          digit_count += 1;
+          parser_advance(parser, 1);
+        }
+        token.value.count = digit_count;
+      }
+      break;
+      case 't':
+      {
+        String string = String("true");
+        if (parser_token_is_literal(parser, string))
+        {
+          // No 'value' for this
+          token.type  = JSON_TOKEN_TRUE;
+          parser_advance(parser, string.count);
+        }
+        else
+        {
+          LOG_ERROR("Encountered unrecognized literal at byte %lu", parser->at);
+        }
+      }
+      break;
+      case 'f':
+      {
+        String string = String("false");
+        if (parser_token_is_literal(parser, string))
+        {
+          // No 'value' for this
+          token.type  = JSON_TOKEN_FALSE;
+          parser_advance(parser, string.count);
+        }
+        else
+        {
+          LOG_ERROR("Encountered unrecognized literal at byte %lu", parser->at);
+        }
+      }
+      break;
+      case 'n':
+      {
+        String string = String("null");
+        if (parser_token_is_literal(parser, string))
+        {
+          // No 'value' for this
+          token.type  = JSON_TOKEN_NULL;
+          parser_advance(parser, string.count);
+        }
+        else
+        {
+          LOG_ERROR("Encountered unrecognized literal at byte %lu", parser->at);
+        }
+      }
+      break;
     }
-    break;
+  }
+  else
+  {
+    // EOF
+    parser_advance(parser, 1);
   }
 
   return token;
 }
 
-// Returns the very first token
-JSON_Token *parse_json(Arena *arena, const char *file_name)
+JSON_Object *parse_json_children(Arena *arena, JSON_Parser *parser,
+                                 JSON_Token_Type end_token, b32 has_keys);
+
+JSON_Object *parse_json_parent(Arena *arena, JSON_Parser *parser, String key, JSON_Token token)
+{
+
+  JSON_Object *first_child = NULL;
+
+  if (token.type == JSON_TOKEN_OPEN_CURLY_BRACE)
+  {
+    // Normal key : value pairs
+    b32 has_keys = true;
+    first_child = parse_json_children(arena, parser, JSON_TOKEN_CLOSE_CURLY_BRACE, has_keys);
+  }
+  else if (token.type == JSON_TOKEN_OPEN_SQUARE_BRACE)
+  {
+    // Array, no key
+    b32 has_keys = false;
+    first_child = parse_json_children(arena, parser, JSON_TOKEN_CLOSE_SQUARE_BRACE, has_keys);
+  }
+  else
+  {
+    // Do nothing
+  }
+
+  JSON_Object *result = arena_new(arena, JSON_Object);
+  result->key          = key;
+  result->first_child  = first_child;
+  result->next_sibling = NULL;
+  result->value        = token.value;
+
+  return result;
+}
+
+JSON_Object *parse_json_children(Arena *arena, JSON_Parser *parser,
+                                 JSON_Token_Type end_token, b32 has_keys)
+{
+
+}
+
+// Returns the very first object
+JSON_Object *parse_json(Arena *arena, const char *file_name)
 {
   String source = read_file_to_arena(arena, file_name);
 
@@ -251,81 +312,12 @@ JSON_Token *parse_json(Arena *arena, const char *file_name)
     .at     = 0,
   };
 
+  int i = 0;
   while (parser_incomplete(&parser))
   {
-    JSON_Token token = get_token(&parser);
+    JSON_Token token = get_json_token(&parser);
     printf("Token :: Type = %s, Value = '%.*s', \n", JSON_Token_Type_strings[token.type],
            String_Format(token.value));
-
-    switch (token.type)
-    {
-      case JSON_TOKEN_EOF:
-      {
-
-      }
-      break;
-      case JSON_TOKEN_OPEN_CURLY_BRACE:
-      {
-
-      }
-      break;
-      case JSON_TOKEN_CLOSE_CURLY_BRACE:
-      {
-
-      }
-      break;
-      case JSON_TOKEN_OPEN_SQUARE_BRACE:
-      {
-
-      }
-      break;
-      case JSON_TOKEN_CLOSE_SQUARE_BRACE:
-      {
-
-      }
-      break;
-      case JSON_TOKEN_COMMA:
-      {
-
-      }
-      break;
-      case JSON_TOKEN_COLON:
-      {
-
-      }
-      break;
-      case JSON_TOKEN_STRING:
-      {
-
-      }
-      break;
-      case JSON_TOKEN_NUMBER:
-      {
-
-      }
-      break;
-      case JSON_TOKEN_TRUE:
-      {
-
-      }
-      break;
-      case JSON_TOKEN_FALSE:
-      {
-
-      }
-      break;
-      case JSON_TOKEN_NULL:
-      {
-
-      }
-      break;
-
-      case JSON_TOKEN_COUNT:
-      {
-
-      }
-      break;
-    }
   }
 
   return NULL;

@@ -27,6 +27,7 @@ extern "C"
 #include <stdint.h>
 #include <stdio.h>
 #include <stddef.h>
+#include <stdalign.h>
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>

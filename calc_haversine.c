@@ -14,4 +14,6 @@ int main(int args_count, char **args)
 
   Arena arena = arena_make(KB(8));
   parse_json(&arena, args[1]);
+
+  arena_free(&arena);
 }
