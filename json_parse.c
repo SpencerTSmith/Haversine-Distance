@@ -254,7 +254,7 @@ JSON_Token get_json_token(JSON_Parser *parser)
   }
   else
   {
-    // EOF
+    // EOF, do nothing else
     parser_advance(parser, 1);
   }
 
@@ -298,7 +298,79 @@ JSON_Object *parse_json_parent(Arena *arena, JSON_Parser *parser, String key, JS
 JSON_Object *parse_json_children(Arena *arena, JSON_Parser *parser,
                                  JSON_Token_Type end_token, b32 has_keys)
 {
+  JSON_Object *first_child        = NULL;
+  JSON_Object *current_last_child = NULL;
 
+  while (parser_incomplete(parser))
+  {
+    JSON_Token key_token = {0};
+    JSON_Token value_token = {0};
+
+    // Grab in the key, if needed, and it's value
+    if (has_keys)
+    {
+      key_token = get_json_token(parser);
+
+      if (key_token.type == JSON_TOKEN_STRING)
+      {
+        JSON_Token expect_colon = get_json_token(parser);
+
+        if (expect_colon.type == JSON_TOKEN_COLON)
+        {
+          value_token = get_json_token(parser);
+        }
+        else
+        {
+          LOG_ERROR("Expected colon after key: %s", key_token.value);
+        }
+      }
+      else
+      {
+        LOG_ERROR("Unexpected key type: %s, (value = %s)", JSON_Token_Type_strings[key_token.type], key_token.value);
+      }
+    }
+    // Its just values and no keys
+    else
+    {
+      value_token = get_json_token(parser);
+    }
+
+    if (value_token.type == end_token)
+    {
+      // We're done
+      break;
+    }
+
+    JSON_Object *object = parse_json_parent(arena, parser, key_token.value, value_token);
+    if (object)
+    {
+      // Create links
+      if (!first_child)
+      {
+        first_child        = object;
+        current_last_child = object;
+      }
+      else
+      {
+        current_last_child->next_sibling = object;
+        current_last_child = object;
+      }
+    }
+
+    // We either want the end, or a comma
+    JSON_Token expect_comma_or_end = get_json_token(parser);
+    if (expect_comma_or_end.type == end_token)
+    {
+      break;
+    }
+    else if (expect_comma_or_end.type != JSON_TOKEN_COMMA)
+    {
+      LOG_ERROR("Expected comma, parsed Token :: Type = %s, Value = '%.*s', \n", JSON_Token_Type_strings[expect_comma_or_end.type],
+                String_Format(expect_comma_or_end.value), expect_comma_or_end);
+    }
+  }
+
+  return first_child;
 }
 
 // Returns the very first object
@@ -312,13 +384,26 @@ JSON_Object *parse_json(Arena *arena, const char *file_name)
     .at     = 0,
   };
 
-  int i = 0;
-  while (parser_incomplete(&parser))
+  JSON_Object *outer = parse_json_parent(arena, &parser, (String){0}, get_json_token(&parser));
+
+  return outer;
+}
+
+JSON_Object *lookup_json_object(JSON_Object *current, String key)
+{
+  JSON_Object *result = NULL;
+
+  if (current)
   {
-    JSON_Token token = get_json_token(&parser);
-    printf("Token :: Type = %s, Value = '%.*s', \n", JSON_Token_Type_strings[token.type],
-           String_Format(token.value));
+    for (JSON_Object *cursor = current->first_child; cursor; cursor = cursor->next_sibling)
+    {
+      if (strings_equal(key, cursor->key))
+      {
+        result = cursor;
+        break;
+      }
+    }
   }
 
-  return NULL;
+  return result;
 }
