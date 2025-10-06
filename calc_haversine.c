@@ -1,6 +1,8 @@
 #define COMMON_IMPLEMENTATION
 #include "common.h"
+
 #include "json_parse.c"
+#include "haversine_impl.c"
 
 #define DESIRED_ARG_COUNT 2 + 1
 
@@ -21,15 +23,16 @@ int main(int args_count, char **args)
   {
     for (JSON_Object *cursor = pairs->first_child; cursor; cursor = cursor->next_sibling)
     {
-      JSON_Object *x0 = lookup_json_object(cursor, String("x0"));
-      JSON_Object *y0 = lookup_json_object(cursor, String("y0"));
-      JSON_Object *x1 = lookup_json_object(cursor, String("x1"));
-      JSON_Object *y1 = lookup_json_object(cursor, String("y1"));
+      f64 x0 = json_object_to_f64(lookup_json_object(cursor, String("x0")));
+      f64 y0 = json_object_to_f64(lookup_json_object(cursor, String("y0")));
+      f64 x1 = json_object_to_f64(lookup_json_object(cursor, String("x1")));
+      f64 y1 = json_object_to_f64(lookup_json_object(cursor, String("y1")));
 
-      printf("x0 : %.*s\n", String_Format(x0->value));
-      printf("y0 : %.*s\n", String_Format(y0->value));
-      printf("x1 : %.*s\n", String_Format(x1->value));
-      printf("y1 : %.*s\n", String_Format(y1->value));
+      f64 sphere_radius = 1.0;
+
+      reference_haversine(x0, y0, x1, y1, sphere_radius);
+
+      printf("%f, %f, %f, %f\n", x0, y0, x1, y1);
     }
   }
 

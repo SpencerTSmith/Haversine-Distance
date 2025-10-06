@@ -407,3 +407,62 @@ JSON_Object *lookup_json_object(JSON_Object *current, String key)
 
   return result;
 }
+
+f64 json_object_to_f64(JSON_Object *object)
+{
+  ASSERT(object, "Must pass valid object to f64 conversion");
+
+  String val = object->value;
+  // Get sign.
+  usize at = 0;
+
+  f64 sign = 1.0;
+  if (val.count > at && val.data[at] == '-')
+  {
+    sign = -1.0;
+    at += 1;
+  }
+
+  f64 result = 0.0;
+
+  // Before decimal
+  while (at < val.count)
+  {
+    u8 digit = val.data[at] - (u8)'0';
+    if (digit < 10)
+    {
+      // We go left to right so each previous result is 10 times bigger
+      result = 10 * result + (f64)digit;
+      at += 1;
+    }
+    else // Not a digit
+    {
+      break;
+    }
+  }
+
+  // After decimal (if there)
+  if (at < val.count && val.data[at] == '.')
+  {
+    at += 1;
+
+    f64 factor = 1.0 / 10.0;
+    while (at < val.count)
+    {
+      u8 digit = val.data[at] - (u8)'0';
+      if (digit < 10)
+      {
+        // We go left to right so each additional digit is 10 times smaller
+        result = result + factor * (f64)digit;
+        factor *= 1.0 / 10.0;
+        at += 1;
+      }
+      else // Not a digit
+      {
+        break;
+      }
+    }
+  }
+
+  return sign * result;
+}
