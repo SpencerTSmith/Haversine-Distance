@@ -374,10 +374,8 @@ JSON_Object *parse_json_children(Arena *arena, JSON_Parser *parser,
 }
 
 // Returns the very first object
-JSON_Object *parse_json(Arena *arena, const char *file_name)
+JSON_Object *parse_json(Arena *arena, String source)
 {
-  String source = read_file_to_arena(arena, file_name);
-
   JSON_Parser parser =
   {
     .source = source,

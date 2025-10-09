@@ -1,8 +1,8 @@
+#define COMMON_IMPLEMENTATION
 #include "common.h"
 #include "haversine_impl.c"
 
 #include <stdlib.h>
-#include <math.h>
 
 #define DESIRED_ARG_COUNT 3 + 1
 
@@ -17,7 +17,7 @@ int main(int arg_count, char **args)
   FILE *json_file = fopen("haversine_pairs.json", "w");
   if (!json_file)
   {
-    printf("Unable to open json file for writing.\n");
+    LOG_ERROR("Unable to open json file for writing.\n");
     return 1;
   }
 
@@ -29,7 +29,7 @@ int main(int arg_count, char **args)
   f64 *haversines = (f64 *)calloc(pair_count, sizeof(f64));
   if (!haversines)
   {
-    printf("Unable to allocate buffer for haversine values.\n");
+    LOG_ERROR("Unable to allocate buffer for haversine values.\n");
     return 1;
   }
 
@@ -60,8 +60,13 @@ int main(int arg_count, char **args)
   fprintf(json_file, "\n]}\n");
   fclose(json_file);
 
-  haversine_sum /= pair_count;
-  printf("%f\n", haversine_sum);
-
   free(haversines);
+
+  haversine_sum /= pair_count;
+
+  // Dump solution and pair count as binary
+  FILE *solution_dump = fopen("solution_dump.data", "wb");
+  fwrite(&haversine_sum, sizeof(haversine_sum), 1, solution_dump);
+  fwrite(&pair_count, sizeof(pair_count), 1, solution_dump);
+  fclose(solution_dump);
 }

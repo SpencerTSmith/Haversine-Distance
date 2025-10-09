@@ -419,7 +419,7 @@ String read_file_to_arena(Arena *arena, const char *name)
 
 b8 strings_equal(String a, String b)
 {
-  return a.count ==b.count && memcmp(a.data, b.data, a.count) == 0;
+  return a.count == b.count && memcmp(a.data, b.data, a.count) == 0;
 }
 
 #ifndef LOG_TITLE
@@ -506,12 +506,12 @@ void *arena_alloc(Arena *arena, isize size, isize alignment) {
   isize aligned_offset = ALIGN_ROUND_UP(arena->next_offset, alignment);
 
   // Do we need a bigger buffer?
-  if (aligned_offset + size > arena->capacity)
+  if ((aligned_offset + size) > arena->capacity)
   {
     u64 needed_capacity = aligned_offset + size;
 
-    LOG_FATAL("Not enough memory in arena, NEED: %li bytes HAVE: %li bytes",
-              needed_capacity, arena->capacity, EXT_ARENA_ALLOCATION);
+    LOG_FATAL("Not enough memory in arena, NEED: %ld bytes HAVE: %ld bytes",
+              EXT_ARENA_ALLOCATION, needed_capacity, arena->capacity);
     return NULL;
   }
 
