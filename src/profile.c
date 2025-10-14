@@ -96,16 +96,22 @@ void end_profiling()
 
   u64 total_delta = g_profiler.end - g_profiler.start;
 
-  for (usize i = 0; i < MAX_PROFILE_BLOCKS; i++)
+  if (total_delta)
   {
-    Profile_Block *block = &g_profiler.blocks[i];
-
-    u64 delta = block->end - block->start;
-    if (delta)
+    for (usize i = 0; i < MAX_PROFILE_BLOCKS; i++)
     {
-      f64 percent = ((f64)delta / (f64)total_delta) * 100.0;
-      printf("Profile %.*s: %lu (%.4f%%)\n", String_Format(block->name), delta, percent);
+      Profile_Block *block = &g_profiler.blocks[i];
+
+      u64 delta = block->end - block->start;
+      if (delta)
+      {
+        f64 percent = ((f64)delta / (f64)total_delta) * 100.0;
+        printf("Profile %.*s: %lu (%.4f%%)\n", String_Format(block->name), delta, percent);
+      }
     }
+
+    u64 freq = estimate_cpu_freq();
+    printf("Total duration: %lu (%fms)\n", total_delta, (f64)total_delta / (f64)freq * 1000.0);
   }
 }
 
@@ -123,4 +129,5 @@ void __end_profile_block(usize index)
 }
 
 #define begin_profile_block(name) __begin_profile_block(String(name), __COUNTER__)
-#define end_profile_block(name)   __end_profile_block(__COUNTER__ - 1)
+#define end_profile_block()       __end_profile_block(__COUNTER__ - 1)
+#define PROFILE_SCOPE(name)       DEFER_SCOPE(begin_profile_block(name), end_profile_block())

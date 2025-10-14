@@ -90,6 +90,9 @@ typedef ptrdiff_t isize;
 #define NSEC_PER_SEC BILLION(1)
 #define MSEC_PER_SEC THOUSAND(1)
 
+#define DEFER_SCOPE(begin, end) \
+  for (isize __once__ = (begin, 0); !__once__; __once__++, (end))
+
 #define ENUM_MEMBER(name) name,
 #define ENUM_STRING(name) # name,
 
