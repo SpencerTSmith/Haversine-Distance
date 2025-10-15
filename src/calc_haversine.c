@@ -8,6 +8,7 @@
 
 #define DESIRED_ARG_COUNT 2 + 1
 
+static
 b32 epsilon_equal(f64 a, f64 b)
 {
   f64 epsilon = 0.00001;

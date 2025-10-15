@@ -41,6 +41,7 @@ struct JSON_Parser
   usize  at;
 };
 
+static
 u8 *parser_at(JSON_Parser *parser)
 {
   ASSERT(parser->at < parser->source.count, "Attempted to read past parser source");
@@ -48,27 +49,32 @@ u8 *parser_at(JSON_Parser *parser)
 }
 
 // TODO: Use this to peek so don't have to always advance one at a time
+static
 u8 *parser_peek(JSON_Parser *parser, usize advance)
 {
   return parser_at(parser) + advance;
 }
 
+static
 void parser_advance(JSON_Parser *parser, usize advance)
 {
   parser->at += advance;
 }
 
+static
 b8 parser_incomplete(JSON_Parser *parser)
 {
   return parser->at < parser->source.count;
 }
 
+static
 b8 parser_token_is_literal(JSON_Parser *parser, String literal_string)
 {
 
   return memcmp(parser_at(parser), literal_string.data, literal_string.count) == 0;
 }
 
+static
 b8 is_numeric(u8 ch)
 {
   b8 result = false;
@@ -261,9 +267,11 @@ JSON_Token get_json_token(JSON_Parser *parser)
   return token;
 }
 
+static
 JSON_Object *parse_json_children(Arena *arena, JSON_Parser *parser,
                                  JSON_Token_Type end_token, b32 has_keys);
 
+static
 JSON_Object *parse_json_parent(Arena *arena, JSON_Parser *parser, String key, JSON_Token token)
 {
 
@@ -295,6 +303,7 @@ JSON_Object *parse_json_parent(Arena *arena, JSON_Parser *parser, String key, JS
   return result;
 }
 
+static
 JSON_Object *parse_json_children(Arena *arena, JSON_Parser *parser,
                                  JSON_Token_Type end_token, b32 has_keys)
 {
@@ -374,6 +383,7 @@ JSON_Object *parse_json_children(Arena *arena, JSON_Parser *parser,
 }
 
 // Returns the very first object
+static
 JSON_Object *parse_json(Arena *arena, String source)
 {
   JSON_Parser parser =
@@ -387,6 +397,7 @@ JSON_Object *parse_json(Arena *arena, String source)
   return outer;
 }
 
+static
 JSON_Object *lookup_json_object(JSON_Object *current, String key)
 {
   JSON_Object *result = NULL;

@@ -2,11 +2,13 @@
 
 #include <math.h>
 
+static
 f64 to_radians(f64 degrees)
 {
   return degrees / PI;
 }
 
+static
 f64 square(f64 x)
 {
   return x * x;
@@ -21,6 +23,7 @@ struct Haversine_Pair
   f64 y1;
 };
 
+static
 f64 reference_haversine(f64 x0, f64 y0, f64 x1, f64 y1, f64 sphere_radius)
 {
   f64 lat1 = y0;

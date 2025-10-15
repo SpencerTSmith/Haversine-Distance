@@ -4,6 +4,7 @@
 #include <sys/time.h>
 
 // NOTE(ss): Will need to be defined per OS
+static
 u64 get_os_timer_freq(void)
 {
   // Posix gettimeofday is in microseconds
@@ -11,6 +12,7 @@ u64 get_os_timer_freq(void)
 }
 
 // NOTE(ss): Will need to be defined per OS
+static
 u64 read_os_timer(void)
 {
   struct timeval value;
@@ -21,12 +23,14 @@ u64 read_os_timer(void)
 }
 
 // NOTE(ss): Will need to be defined per ISA
+static
 u64 read_cpu_timer(void)
 {
   return __rdtsc();
 }
 
 // Just an estimation, in microseconds
+static
 u64 estimate_cpu_freq(void)
 {
   u64 wait_milliseconds = 100;
@@ -90,6 +94,7 @@ struct Profiler
 
 static Profiler g_profiler;
 
+static
 void begin_profiling()
 {
   g_profiler = (Profiler)
@@ -98,6 +103,7 @@ void begin_profiling()
   };
 }
 
+static
 void end_profiling()
 {
   u64 total_delta = read_cpu_timer() - g_profiler.start;
@@ -106,12 +112,12 @@ void end_profiling()
   {
     for (usize i = 0; i < MAX_PROFILE_ZONES; i++)
     {
-      Profile_Zone *zone = &g_profiler.zones[i];
+      Profile_Zone zone = g_profiler.zones[i];
 
-      if (zone->elapsed)
+      if (zone.elapsed)
       {
-        f64 percent = ((f64)zone->elapsed / (f64)total_delta) * 100.0;
-        printf("Profile %.*s: %lu (%.4f%%)\n", String_Format(zone->name), zone->elapsed, percent);
+        f64 percent = ((f64)zone.elapsed / (f64)total_delta) * 100.0;
+        printf("Profile %.*s: %lu (%.4f%%)\n", String_Format(zone.name), zone.elapsed, percent);
       }
     }
 
@@ -120,7 +126,7 @@ void end_profiling()
   }
 }
 
-static inline
+static
 Profile_Block __profile_begin_block(String name, usize zone_index)
 {
   Profile_Block block =
@@ -132,19 +138,23 @@ Profile_Block __profile_begin_block(String name, usize zone_index)
 
   return block;
 }
-// Only works for unity builds
+// Only works for unity builds, but I do those anyways
 #define profile_begin_block(name) __profile_begin_block(String(name), __COUNTER__)
 
-#define PROFILE_BLOCK_DIRTY_BIT (1L << 63) // For marking the index when we have finished for the macro bullshittery
-static inline
+static
 void profile_end_block(Profile_Block block)
 {
   Profile_Zone *zone = &g_profiler.zones[block.zone_index];
+
   zone->name = block.name; // Stupid...
 
   zone->elapsed   += read_cpu_timer() - block.start;
   zone->hit_count += 1;
 }
 
-#define PROFILE_SCOPE(name) \
-  for (Profile_Block __block = profile_begin_block(name); !(__block.zone_index == PROFILE_BLOCK_DIRTY_BIT); profile_end_block(__block), __block.zone_index = PROFILE_BLOCK_DIRTY_BIT)
+#define CONCAT(a, b) a##b
+#define MACRO_CONCAT(a, b) CONCAT(a, b)
+
+#define PROFILE_SCOPE(name)                                                \
+  Profile_Block MACRO_CONCAT(block, __LINE__) = profile_begin_block(name); \
+  DEFER_SCOPE(VOID_PROC, profile_end_block(MACRO_CONCAT(block, __LINE__)))
