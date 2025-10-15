@@ -59,25 +59,33 @@ u64 estimate_cpu_freq(void)
   return cpu_frequency;
 }
 
+// Just for storing actual timing info and where we need to save that to
 typedef struct Profile_Block Profile_Block;
 struct Profile_Block
 {
   String name;
   u64    start;
-  u64    end;
+  u64    zone_index;
 };
 
-#define MAX_PROFILE_BLOCKS 4096
+// Here we collect info on 'zones' which is all the times a 'block' is hit
+typedef struct Profile_Zone Profile_Zone;
+struct Profile_Zone
+{
+  String name;
+  u64    elapsed; // Total time here.
+  u64    hit_count;
+};
 
+#define MAX_PROFILE_ZONES 4096
 
 typedef struct Profiler Profiler;
 struct Profiler
 {
   // For the whole profiler duration
   u64 start;
-  u64 end;
 
-  Profile_Block blocks[MAX_PROFILE_BLOCKS];
+  Profile_Zone zones[MAX_PROFILE_ZONES];
 };
 
 static Profiler g_profiler;
@@ -92,21 +100,18 @@ void begin_profiling()
 
 void end_profiling()
 {
-  g_profiler.end = read_cpu_timer();
-
-  u64 total_delta = g_profiler.end - g_profiler.start;
+  u64 total_delta = read_cpu_timer() - g_profiler.start;
 
   if (total_delta)
   {
-    for (usize i = 0; i < MAX_PROFILE_BLOCKS; i++)
+    for (usize i = 0; i < MAX_PROFILE_ZONES; i++)
     {
-      Profile_Block *block = &g_profiler.blocks[i];
+      Profile_Zone *zone = &g_profiler.zones[i];
 
-      u64 delta = block->end - block->start;
-      if (delta)
+      if (zone->elapsed)
       {
-        f64 percent = ((f64)delta / (f64)total_delta) * 100.0;
-        printf("Profile %.*s: %lu (%.4f%%)\n", String_Format(block->name), delta, percent);
+        f64 percent = ((f64)zone->elapsed / (f64)total_delta) * 100.0;
+        printf("Profile %.*s: %lu (%.4f%%)\n", String_Format(zone->name), zone->elapsed, percent);
       }
     }
 
@@ -115,19 +120,31 @@ void end_profiling()
   }
 }
 
-void __begin_profile_block(String name, usize index)
+Profile_Block __profile_begin_block(String name, usize zone_index)
 {
-  Profile_Block *block = &g_profiler.blocks[index];
-  block->start = read_cpu_timer();
-  block->name  = name;
+  Profile_Block block =
+  {
+    .name       = name,
+    .zone_index = zone_index,
+    .start      = read_cpu_timer(),
+  };
+
+  return block;
+}
+// Only works for unity builds
+#define profile_begin_block(name) __profile_begin_block(String(name), __COUNTER__)
+
+#define PROFILE_BLOCK_DIRTY_BIT (1L << 63) // For marking the index when we have finished for the macro bullshittery
+void profile_end_block(Profile_Block *block)
+{
+  Profile_Zone *zone = &g_profiler.zones[block->zone_index];
+  zone->name = block->name; // Stupid...
+
+  zone->elapsed   += read_cpu_timer() - block->start;
+  zone->hit_count += 1;
+
+  block->zone_index = PROFILE_BLOCK_DIRTY_BIT; // Mark as finished block
 }
 
-void __end_profile_block(usize index)
-{
-  Profile_Block *block = &g_profiler.blocks[index];
-  block->end = read_cpu_timer();
-}
-
-#define begin_profile_block(name) __begin_profile_block(String(name), __COUNTER__)
-#define end_profile_block()       __end_profile_block(__COUNTER__ - 1)
-#define PROFILE_SCOPE(name)       DEFER_SCOPE(begin_profile_block(name), end_profile_block())
+#define PROFILE_SCOPE(name) \
+  for (Profile_Block __block = profile_begin_block(name); !(__block.zone_index == PROFILE_BLOCK_DIRTY_BIT); profile_end_block(&__block))

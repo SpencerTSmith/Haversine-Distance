@@ -81,7 +81,7 @@ typedef ptrdiff_t isize;
 
 #define KB(n) (1024 * (n))
 #define MB(n) (1024 * KB(n))
-#define GB(n) (1024 * MB(n))
+#define GB(n) (1024L * MB(n)) // L immediate to promote the expression if over 4GB
 
 #define THOUSAND(n) (1000 * (n))
 #define MILLION(n) (1000 * THOUSAND(n))

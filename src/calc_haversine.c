@@ -28,7 +28,7 @@ int main(int args_count, char **args)
   Arena arena = {0};
   PROFILE_SCOPE("arena")
   {
-    arena = arena_make(GB(4.));
+    arena = arena_make(GB(4));
   }
 
   String source = {0};
