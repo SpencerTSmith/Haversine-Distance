@@ -120,6 +120,7 @@ void end_profiling()
   }
 }
 
+static inline
 Profile_Block __profile_begin_block(String name, usize zone_index)
 {
   Profile_Block block =
@@ -135,16 +136,15 @@ Profile_Block __profile_begin_block(String name, usize zone_index)
 #define profile_begin_block(name) __profile_begin_block(String(name), __COUNTER__)
 
 #define PROFILE_BLOCK_DIRTY_BIT (1L << 63) // For marking the index when we have finished for the macro bullshittery
-void profile_end_block(Profile_Block *block)
+static inline
+void profile_end_block(Profile_Block block)
 {
-  Profile_Zone *zone = &g_profiler.zones[block->zone_index];
-  zone->name = block->name; // Stupid...
+  Profile_Zone *zone = &g_profiler.zones[block.zone_index];
+  zone->name = block.name; // Stupid...
 
-  zone->elapsed   += read_cpu_timer() - block->start;
+  zone->elapsed   += read_cpu_timer() - block.start;
   zone->hit_count += 1;
-
-  block->zone_index = PROFILE_BLOCK_DIRTY_BIT; // Mark as finished block
 }
 
 #define PROFILE_SCOPE(name) \
-  for (Profile_Block __block = profile_begin_block(name); !(__block.zone_index == PROFILE_BLOCK_DIRTY_BIT); profile_end_block(&__block))
+  for (Profile_Block __block = profile_begin_block(name); !(__block.zone_index == PROFILE_BLOCK_DIRTY_BIT); profile_end_block(__block), __block.zone_index = PROFILE_BLOCK_DIRTY_BIT)

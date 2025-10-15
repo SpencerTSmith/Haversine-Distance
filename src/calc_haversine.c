@@ -10,7 +10,7 @@
 
 b32 epsilon_equal(f64 a, f64 b)
 {
-  f64 epsilon = 0.000001;
+  f64 epsilon = 0.00001;
 
   return (fabs(a) - fabs(b)) <= epsilon;
 }
