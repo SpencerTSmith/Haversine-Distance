@@ -62,6 +62,9 @@ typedef float  f32;
 typedef size_t    usize;
 typedef ptrdiff_t isize;
 
+#define CONCAT(a, b) a##b
+#define MACRO_CONCAT(a, b) CONCAT(a, b)
+
 #define CLAMP(value, min, max) (((value) < (min)) ? (min) : ((value) > (max)) ? (max) : (value))
 #define MAX(first, second) ((first) > (second) ? (first) : (second))
 #define MIN(first, second) ((first) > (second) ? (second) : (first))

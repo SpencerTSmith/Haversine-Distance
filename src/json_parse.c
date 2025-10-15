@@ -78,6 +78,7 @@ static
 b8 is_numeric(u8 ch)
 {
   b8 result = false;
+
   switch (ch)
   {
     case '0':
@@ -96,9 +97,6 @@ b8 is_numeric(u8 ch)
       result = true;
     }
     break;
-    // default:
-    // printf("%c\n", ch);
-    // break;
   }
 
 
@@ -267,13 +265,24 @@ JSON_Token get_json_token(JSON_Parser *parser)
   return token;
 }
 
+b32 json_token_type_is_value_type(JSON_Token_Type type)
+{
+  b32 is_value_type = (type == JSON_TOKEN_STRING ||
+                       type == JSON_TOKEN_TRUE   ||
+                       type == JSON_TOKEN_FALSE  ||
+                       type == JSON_TOKEN_NULL   ||
+                       type == JSON_TOKEN_NUMBER);
+  return is_value_type;
+}
+
 static
 JSON_Object *parse_json_children(Arena *arena, JSON_Parser *parser,
                                  JSON_Token_Type end_token, b32 has_keys);
 
 static
-JSON_Object *parse_json_parent(Arena *arena, JSON_Parser *parser, String key, JSON_Token token)
+JSON_Object *parse_json_object(Arena *arena, JSON_Parser *parser, String key, JSON_Token token)
 {
+  profile_begin_func();
 
   JSON_Object *first_child = NULL;
 
@@ -289,16 +298,23 @@ JSON_Object *parse_json_parent(Arena *arena, JSON_Parser *parser, String key, JS
     b32 has_keys = false;
     first_child = parse_json_children(arena, parser, JSON_TOKEN_CLOSE_SQUARE_BRACE, has_keys);
   }
+  // else it should be a leaf node containing a value only, not an array or table
+  else if (json_token_type_is_value_type(token.type))
+  {
+    // Do nothing, no children to parse
+  }
   else
   {
-    // Do nothing
+    LOG_ERROR("Unexpected token type encountered while parsing json object: %s, (value = %.*s)", JSON_Token_Type_strings[token.type], token.value);
   }
 
-  JSON_Object *result = arena_new(arena, JSON_Object);
+  JSON_Object *result  = arena_new(arena, JSON_Object);
   result->key          = key;
   result->first_child  = first_child;
   result->next_sibling = NULL;
   result->value        = token.value;
+
+  profile_end_func();
 
   return result;
 }
@@ -307,6 +323,8 @@ static
 JSON_Object *parse_json_children(Arena *arena, JSON_Parser *parser,
                                  JSON_Token_Type end_token, b32 has_keys)
 {
+  profile_begin_func();
+
   JSON_Object *first_child        = NULL;
   JSON_Object *current_last_child = NULL;
 
@@ -330,12 +348,12 @@ JSON_Object *parse_json_children(Arena *arena, JSON_Parser *parser,
         }
         else
         {
-          LOG_ERROR("Expected colon after key: %s", key_token.value);
+          LOG_ERROR("Expected colon after key: %*.s", String_Format(key_token.value));
         }
       }
       else
       {
-        LOG_ERROR("Unexpected key type: %s, (value = %s)", JSON_Token_Type_strings[key_token.type], key_token.value);
+        LOG_ERROR("Unexpected key type: %s, (value = %*.s)", JSON_Token_Type_strings[key_token.type], String_Format(key_token.value));
       }
     }
     // Its just values and no keys
@@ -350,7 +368,7 @@ JSON_Object *parse_json_children(Arena *arena, JSON_Parser *parser,
       break;
     }
 
-    JSON_Object *object = parse_json_parent(arena, parser, key_token.value, value_token);
+    JSON_Object *object = parse_json_object(arena, parser, key_token.value, value_token);
     if (object)
     {
       // Create links
@@ -379,6 +397,8 @@ JSON_Object *parse_json_children(Arena *arena, JSON_Parser *parser,
     }
   }
 
+  profile_end_func();
+
   return first_child;
 }
 
@@ -386,13 +406,17 @@ JSON_Object *parse_json_children(Arena *arena, JSON_Parser *parser,
 static
 JSON_Object *parse_json(Arena *arena, String source)
 {
+  profile_begin_func();
+
   JSON_Parser parser =
   {
     .source = source,
     .at     = 0,
   };
 
-  JSON_Object *outer = parse_json_parent(arena, &parser, (String){0}, get_json_token(&parser));
+  JSON_Object *outer = parse_json_object(arena, &parser, (String){0}, get_json_token(&parser));
+
+  profile_end_func();
 
   return outer;
 }
@@ -400,6 +424,8 @@ JSON_Object *parse_json(Arena *arena, String source)
 static
 JSON_Object *lookup_json_object(JSON_Object *current, String key)
 {
+  profile_begin_func();
+
   JSON_Object *result = NULL;
 
   if (current)
@@ -413,6 +439,8 @@ JSON_Object *lookup_json_object(JSON_Object *current, String key)
       }
     }
   }
+
+  profile_end_func();
 
   return result;
 }

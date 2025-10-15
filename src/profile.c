@@ -1,5 +1,6 @@
 #include "common.h"
 
+#include <math.h>
 #include <x86intrin.h>
 #include <sys/time.h>
 
@@ -64,20 +65,23 @@ u64 estimate_cpu_freq(void)
 }
 
 // Just for storing actual timing info and where we need to save that to
-typedef struct Profile_Block Profile_Block;
-struct Profile_Block
+typedef struct Profile_Pass Profile_Pass;
+struct Profile_Pass
 {
   String name;
   u64    start;
-  u64    zone_index;
+  u64    old_elapsed_inclusive;
+  usize  zone_index;
+  usize  parent_index;
 };
 
-// Here we collect info on 'zones' which is all the times a 'block' is hit
+// Here we collect info on 'zones' which is all the times a 'pass' hits it
 typedef struct Profile_Zone Profile_Zone;
 struct Profile_Zone
 {
   String name;
-  u64    elapsed; // Total time here.
+  u64    elapsed_exclusive; // Not including child zones
+  u64    elapsed_inclusive; // Incuding child zones
   u64    hit_count;
 };
 
@@ -88,6 +92,9 @@ struct Profiler
 {
   // For the whole profiler duration
   u64 start;
+
+  // DANGER! Needs to be a per thread profiler
+  usize current_parent_zone;
 
   Profile_Zone zones[MAX_PROFILE_ZONES];
 };
@@ -110,51 +117,91 @@ void end_profiling()
 
   if (total_delta)
   {
-    for (usize i = 0; i < MAX_PROFILE_ZONES; i++)
-    {
-      Profile_Zone zone = g_profiler.zones[i];
+    u64 freq = estimate_cpu_freq();
+    printf("[PROFILE] Total duration: %lu (%fms @ CPU Frequency: %u)\n", total_delta, (f64)total_delta / (f64)freq * 1000.0, freq);
 
-      if (zone.elapsed)
+    f64 exclusive_percent = 0.0;
+
+    for (usize i = 0; i < STATIC_ARRAY_COUNT(g_profiler.zones); i++)
+    {
+      Profile_Zone *zone = &g_profiler.zones[i];
+
+      if (zone->elapsed_inclusive)
       {
-        f64 percent = ((f64)zone.elapsed / (f64)total_delta) * 100.0;
-        printf("Profile %.*s: %lu (%.4f%%)\n", String_Format(zone.name), zone.elapsed, percent);
+        f64 percent = ((f64)zone->elapsed_exclusive / (f64)total_delta) * 100.0;
+
+        printf("[PROFILE] Zone '%.*s':\n"
+               "  Hit Count: %lu\n"
+               "  Exclusive Timestamp Cycles: %lu (%.4f%%)\n"
+               , String_Format(zone->name), zone->hit_count, zone->elapsed_exclusive, percent);
+        if (zone->elapsed_exclusive != zone->elapsed_inclusive)
+        {
+          f64 with_children_percent = ((f64)zone->elapsed_inclusive / (f64)total_delta) * 100.0;
+          printf("  Inclusive Timestamp Cycles: %lu (%.4f%%)\n", zone->elapsed_inclusive, with_children_percent);
+        }
+
+        exclusive_percent += percent;
       }
     }
 
-    u64 freq = estimate_cpu_freq();
-    printf("Total duration: %lu (%fms)\n", total_delta, (f64)total_delta / (f64)freq * 1000.0);
   }
 }
 
 static
-Profile_Block __profile_begin_block(String name, usize zone_index)
+Profile_Pass __profile_begin_pass(String name, usize zone_index)
 {
-  Profile_Block block =
+  Profile_Pass pass =
   {
-    .name       = name,
-    .zone_index = zone_index,
-    .start      = read_cpu_timer(),
+    .parent_index = g_profiler.current_parent_zone,
+    .name         = name,
+    .zone_index   = zone_index,
+    .old_elapsed_inclusive = g_profiler.zones[zone_index].elapsed_inclusive, // Save the original so it get overwritten in the case of children
   };
 
-  return block;
+  // Push parent
+  g_profiler.current_parent_zone = zone_index;
+
+  // Make sure this is the last thing to run
+  pass.start = read_cpu_timer();
+
+  return pass;
 }
-// Only works for unity builds, but I do those anyways
-#define profile_begin_block(name) __profile_begin_block(String(name), __COUNTER__)
 
 static
-void profile_end_block(Profile_Block block)
+void __profile_end_pass(Profile_Pass pass)
 {
-  Profile_Zone *zone = &g_profiler.zones[block.zone_index];
+  // First!
+  u64 elapsed = read_cpu_timer() - pass.start;
 
-  zone->name = block.name; // Stupid...
+  // Pop parent
+  g_profiler.current_parent_zone = pass.parent_index;
 
-  zone->elapsed   += read_cpu_timer() - block.start;
-  zone->hit_count += 1;
+  Profile_Zone *current = &g_profiler.zones[pass.zone_index];
+  current->elapsed_exclusive += elapsed;
+  current->hit_count += 1;
+  current->name = pass.name; // Stupid...
+  current->elapsed_inclusive = pass.old_elapsed_inclusive + elapsed; // So that only the final out of potential recursive calls writes inclusive time
+
+  // Accumulate to parent time
+  Profile_Zone *parent = &g_profiler.zones[pass.parent_index];
+  parent->elapsed_exclusive -= elapsed;
 }
 
-#define CONCAT(a, b) a##b
-#define MACRO_CONCAT(a, b) CONCAT(a, b)
+#ifdef PROFILE
+  // Only works for unity builds, but I do those anyways
+  #define profile_begin_pass(name) __profile_begin_pass(String(name), __COUNTER__ + 1) // First zone is never used, so the default parent 0 doesn't get junk info
+  #define profile_end_pass(block)  __profile_end_pass(block)
 
-#define PROFILE_SCOPE(name)                                                \
-  Profile_Block MACRO_CONCAT(block, __LINE__) = profile_begin_block(name); \
-  DEFER_SCOPE(VOID_PROC, profile_end_block(MACRO_CONCAT(block, __LINE__)))
+  // Helpful, and ok to hardcode name since should only use these once per function scope
+  #define profile_begin_func() Profile_Pass __func_pass__ = profile_begin_pass(__func__)
+  #define profile_end_func()   profile_end_pass(__func_pass__)
+
+  #define PROFILE_SCOPE(name)                                              \
+    Profile_Pass MACRO_CONCAT(pass, __LINE__) = profile_begin_pass(name); DEFER_SCOPE(VOID_PROC, profile_end_pass(MACRO_CONCAT(pass, __LINE__)))
+#else
+  #define profile_begin_pass(name) VOID_PROC
+  #define profile_end_pass(block)  VOID_PROC
+  #define profile_begin_func()     VOID_PROC
+  #define profile_end_func()       VOID_PROC
+  #define PROFILE_SCOPE(name)
+#endif

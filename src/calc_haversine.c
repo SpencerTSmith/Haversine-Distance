@@ -1,10 +1,9 @@
 #define COMMON_IMPLEMENTATION
 #include "common.h"
 
+#include "profile.c"
 #include "json_parse.c"
 #include "haversine_impl.c"
-
-#include "profile.c"
 
 #define DESIRED_ARG_COUNT 2 + 1
 
@@ -27,10 +26,7 @@ int main(int args_count, char **args)
   begin_profiling();
 
   Arena arena = {0};
-  PROFILE_SCOPE("arena")
-  {
-    arena = arena_make(GB(4));
-  }
+  arena = arena_make(GB(4));
 
   String source = {0};
   PROFILE_SCOPE("read")
@@ -51,19 +47,16 @@ int main(int args_count, char **args)
   }
 
   JSON_Object *root = NULL;
-  PROFILE_SCOPE("json parse")
-  {
-    root = parse_json(&arena, source);
-  }
+  root = parse_json(&arena, source);
 
   f64 haversine_sum = 0.0;
 
-  PROFILE_SCOPE("json lookups")
+  JSON_Object *pairs_object = lookup_json_object(root, String("pairs"));
+  if (pairs)
   {
-    JSON_Object *pairs_object = lookup_json_object(root, String("pairs"));
-    if (pairs)
+    for (JSON_Object *cursor = pairs_object->first_child; cursor && pair_count < max_pairs; cursor = cursor->next_sibling)
     {
-      for (JSON_Object *cursor = pairs_object->first_child; cursor && pair_count < max_pairs; cursor = cursor->next_sibling)
+      PROFILE_SCOPE("child convert")
       {
         Haversine_Pair pair =
         {
@@ -121,7 +114,11 @@ int main(int args_count, char **args)
       LOG_ERROR("Solution dump is not large enough to hold actual solutions");
     }
   }
-  end_profiling();
 
-  arena_free(&arena);
+  PROFILE_SCOPE("free")
+  {
+    arena_free(&arena);
+  }
+
+  end_profiling();
 }
