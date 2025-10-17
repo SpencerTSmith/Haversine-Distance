@@ -4,6 +4,9 @@
 
 #include "platform_timing.c"
 
+#include <fcntl.h>
+#include <unistd.h>
+
 typedef struct Operation_Parameters Operation_Parameters;
 struct Operation_Parameters
 {
@@ -230,7 +233,32 @@ void read_with_fread(Repetition_Tester *tester, Operation_Parameters *params)
 static
 void read_with_read(Repetition_Tester *tester, Operation_Parameters *params)
 {
+  while (repetition_tester_is_testing(tester))
+  {
+    int fd = open(params->file_name, O_RDONLY);
 
+    if (fd != -1)
+    {
+      repetition_tester_begin_time(tester);
+      isize result = read(fd, params->buffer.data, params->buffer.count);
+      repetition_tester_close_time(tester);
+
+      if (result == params->buffer.count)
+      {
+        repetition_tester_count_bytes(tester, params->buffer.count);
+      }
+      else
+      {
+        repetition_tester_error(tester, "Unable to read file");
+      }
+
+      close(fd);
+    }
+    else
+    {
+      repetition_tester_error(tester, "Unable to open file");
+    }
+  }
 }
 
 typedef struct Operation_Entry Operation_Entry;
