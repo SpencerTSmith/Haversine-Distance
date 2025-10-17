@@ -39,6 +39,7 @@ struct JSON_Parser
 {
   String source;
   usize  at;
+  b32    had_error;
 };
 
 static
@@ -64,7 +65,7 @@ void parser_advance(JSON_Parser *parser, usize advance)
 static
 b8 parser_incomplete(JSON_Parser *parser)
 {
-  return parser->at < parser->source.count;
+  return parser->at < parser->source.count && !parser->had_error;
 }
 
 static
@@ -221,6 +222,7 @@ JSON_Token get_json_token(JSON_Parser *parser)
         else
         {
           LOG_ERROR("Encountered unrecognized literal at byte %lu", parser->at);
+          parser->had_error = true;
         }
       }
       break;
@@ -236,6 +238,7 @@ JSON_Token get_json_token(JSON_Parser *parser)
         else
         {
           LOG_ERROR("Encountered unrecognized literal at byte %lu", parser->at);
+          parser->had_error = true;
         }
       }
       break;
@@ -251,6 +254,7 @@ JSON_Token get_json_token(JSON_Parser *parser)
         else
         {
           LOG_ERROR("Encountered unrecognized literal at byte %lu", parser->at);
+          parser->had_error = true;
         }
       }
       break;
@@ -306,6 +310,7 @@ JSON_Object *parse_json_object(Arena *arena, JSON_Parser *parser, String key, JS
   else
   {
     LOG_ERROR("Unexpected token type encountered while parsing json object: %s, (value = %.*s)", JSON_Token_Type_strings[token.type], token.value);
+          parser->had_error = true;
   }
 
   JSON_Object *result  = arena_new(arena, JSON_Object);
@@ -314,7 +319,7 @@ JSON_Object *parse_json_object(Arena *arena, JSON_Parser *parser, String key, JS
   result->next_sibling = NULL;
   result->value        = token.value;
 
-  profile_end_func();
+  profile_close_func();
 
   return result;
 }
@@ -349,11 +354,13 @@ JSON_Object *parse_json_children(Arena *arena, JSON_Parser *parser,
         else
         {
           LOG_ERROR("Expected colon after key: %*.s", String_Format(key_token.value));
+          parser->had_error = true;
         }
       }
       else
       {
         LOG_ERROR("Unexpected key type: %s, (value = %*.s)", JSON_Token_Type_strings[key_token.type], String_Format(key_token.value));
+        parser->had_error = true;
       }
     }
     // Its just values and no keys
@@ -394,10 +401,11 @@ JSON_Object *parse_json_children(Arena *arena, JSON_Parser *parser,
     {
       LOG_ERROR("Expected comma, parsed Token :: Type = %s, Value = '%.*s', \n", JSON_Token_Type_strings[expect_comma_or_end.type],
                 String_Format(expect_comma_or_end.value), expect_comma_or_end);
+        parser->had_error = true;
     }
   }
 
-  profile_end_func();
+  profile_close_func();
 
   return first_child;
 }
@@ -416,7 +424,7 @@ JSON_Object *parse_json(Arena *arena, String source)
 
   JSON_Object *outer = parse_json_object(arena, &parser, (String){0}, get_json_token(&parser));
 
-  profile_end_func();
+  profile_close_func();
 
   return outer;
 }
@@ -440,7 +448,7 @@ JSON_Object *lookup_json_object(JSON_Object *current, String key)
     }
   }
 
-  profile_end_func();
+  profile_close_func();
 
   return result;
 }

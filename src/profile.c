@@ -1,68 +1,5 @@
 #include "common.h"
-
-#include <math.h>
-#include <x86intrin.h>
-#include <sys/time.h>
-
-// NOTE(ss): Will need to be defined per OS
-static
-u64 get_os_timer_freq(void)
-{
-  // Posix gettimeofday is in microseconds
-  return 1000000;
-}
-
-// NOTE(ss): Will need to be defined per OS
-static
-u64 read_os_timer(void)
-{
-  struct timeval value;
-  gettimeofday(&value, 0);
-  u64 result = get_os_timer_freq() * value.tv_sec + value.tv_usec;
-
-  return result;
-}
-
-// NOTE(ss): Will need to be defined per ISA
-static
-u64 read_cpu_timer(void)
-{
-  return __rdtsc();
-}
-
-// Just an estimation, in microseconds
-static
-u64 estimate_cpu_freq(void)
-{
-  u64 wait_milliseconds = 100;
-  u64 os_frequency = get_os_timer_freq();
-
-  u64 cpu_start = read_cpu_timer();
-  u64 os_start  = read_os_timer();
-
-  u64 os_end   = 0;
-  u64 os_delta = 0;
-
-  // In microseconds
-  u64 os_wait_time = (os_frequency * wait_milliseconds) / 1000;
-  while (os_delta < os_wait_time)
-  {
-    os_end   = read_os_timer();
-    os_delta = os_end - os_start;
-  }
-
-  u64 cpu_end   = read_cpu_timer();
-  u64 cpu_delta = cpu_end - cpu_start;
-
-  u64 cpu_frequency = 0;
-
-  assert(os_delta != 0 && "OS Time delta for cpu frequency estimation was somehow 0!");
-
-  // CPU time in OS ticks, divide by OS delta gives estimate of cpu frequency
-  cpu_frequency = os_frequency * cpu_delta / os_delta;
-
-  return cpu_frequency;
-}
+#include "platform_timing.h"
 
 // Just for storing actual timing info and where we need to save that to
 typedef struct Profile_Pass Profile_Pass;
@@ -73,6 +10,7 @@ struct Profile_Pass
   u64    old_elapsed_inclusive;
   usize  zone_index;
   usize  parent_index;
+  u64    bytes_processed;
 };
 
 // Here we collect info on 'zones' which is all the times a 'pass' hits it
@@ -83,6 +21,7 @@ struct Profile_Zone
   u64    elapsed_exclusive; // Not including child zones
   u64    elapsed_inclusive; // Incuding child zones
   u64    hit_count;
+  u64    bytes_processed;
 };
 
 #define MAX_PROFILE_ZONES 4096
@@ -118,7 +57,7 @@ void end_profiling()
   if (total_delta)
   {
     u64 freq = estimate_cpu_freq();
-    printf("[PROFILE] Total duration: %lu (%fms @ CPU Frequency: %u)\n", total_delta, (f64)total_delta / (f64)freq * 1000.0, freq);
+    printf("[PROFILE] Total duration: %lu (%f ms @ %lu Hz)\n", total_delta, (f64)total_delta / (f64)freq * 1000.0, freq);
 
     f64 exclusive_percent = 0.0;
 
@@ -134,6 +73,7 @@ void end_profiling()
                "  Hit Count: %lu\n"
                "  Exclusive Timestamp Cycles: %lu (%.4f%%)\n"
                , String_Format(zone->name), zone->hit_count, zone->elapsed_exclusive, percent);
+
         if (zone->elapsed_exclusive != zone->elapsed_inclusive)
         {
           f64 with_children_percent = ((f64)zone->elapsed_inclusive / (f64)total_delta) * 100.0;
@@ -141,14 +81,22 @@ void end_profiling()
         }
 
         exclusive_percent += percent;
+
+        if (zone->bytes_processed)
+        {
+          f64 megabytes = (f64)zone->bytes_processed / MB(1);
+
+          f64 gb_per_s = (f64)zone->bytes_processed / ((f64)zone->elapsed_inclusive / (f64)freq) / (f64)GB(1.0);
+
+          printf("  Megabytes Processed: %fMB @ %f GB/s\n", megabytes, gb_per_s);
+        }
       }
     }
-
   }
 }
 
 static
-Profile_Pass __profile_begin_pass(String name, usize zone_index)
+Profile_Pass __profile_begin_pass(String name, usize zone_index, u64 bytes_processed)
 {
   Profile_Pass pass =
   {
@@ -156,19 +104,20 @@ Profile_Pass __profile_begin_pass(String name, usize zone_index)
     .name         = name,
     .zone_index   = zone_index,
     .old_elapsed_inclusive = g_profiler.zones[zone_index].elapsed_inclusive, // Save the original so it get overwritten in the case of children
+    .bytes_processed = bytes_processed,
   };
 
   // Push parent
   g_profiler.current_parent_zone = zone_index;
 
-  // Make sure this is the last thing to run
+  // Last!
   pass.start = read_cpu_timer();
 
   return pass;
 }
 
 static
-void __profile_end_pass(Profile_Pass pass)
+void __profile_close_pass(Profile_Pass pass)
 {
   // First!
   u64 elapsed = read_cpu_timer() - pass.start;
@@ -181,6 +130,7 @@ void __profile_end_pass(Profile_Pass pass)
   current->hit_count += 1;
   current->name = pass.name; // Stupid...
   current->elapsed_inclusive = pass.old_elapsed_inclusive + elapsed; // So that only the final out of potential recursive calls writes inclusive time
+  current->bytes_processed += pass.bytes_processed;
 
   // Accumulate to parent time
   Profile_Zone *parent = &g_profiler.zones[pass.parent_index];
@@ -189,19 +139,24 @@ void __profile_end_pass(Profile_Pass pass)
 
 #ifdef PROFILE
   // Only works for unity builds, but I do those anyways
-  #define profile_begin_pass(name) __profile_begin_pass(String(name), __COUNTER__ + 1) // First zone is never used, so the default parent 0 doesn't get junk info
-  #define profile_end_pass(block)  __profile_end_pass(block)
+  #define profile_begin_pass(name) __profile_begin_pass(String(name), __COUNTER__ + 1, 0) // First zone is never used, so the default parent 0 doesn't get junk info
+  #define profile_close_pass(block)  __profile_close_pass(block)
 
   // Helpful, and ok to hardcode name since should only use these once per function scope
   #define profile_begin_func() Profile_Pass __func_pass__ = profile_begin_pass(__func__)
-  #define profile_end_func()   profile_end_pass(__func_pass__)
+  #define profile_close_func()   profile_close_pass(__func_pass__)
 
-  #define PROFILE_SCOPE(name)                                              \
-    Profile_Pass MACRO_CONCAT(pass, __LINE__) = profile_begin_pass(name); DEFER_SCOPE(VOID_PROC, profile_end_pass(MACRO_CONCAT(pass, __LINE__)))
+  #define PROFILE_SCOPE(name) \
+    Profile_Pass MACRO_CONCAT(__pass, __LINE__) = profile_begin_pass(name); DEFER_SCOPE(VOID_PROC, profile_close_pass(MACRO_CONCAT(__pass, __LINE__)))
+
+  #define PROFILE_SCOPE_BANDWIDTH(name, bytes) \
+    Profile_Pass MACRO_CONCAT(__pass, __LINE__) = __profile_begin_pass(String(name), __COUNTER__ + 1, bytes); DEFER_SCOPE(VOID_PROC, profile_close_pass(MACRO_CONCAT(__pass, __LINE__)))
+
 #else
   #define profile_begin_pass(name) VOID_PROC
-  #define profile_end_pass(block)  VOID_PROC
+  #define profile_close_pass(block)  VOID_PROC
   #define profile_begin_func()     VOID_PROC
-  #define profile_end_func()       VOID_PROC
+  #define profile_close_func()       VOID_PROC
   #define PROFILE_SCOPE(name)
+  #define PROFILE_SCOPE_BANDWIDTH(name, bytes)
 #endif

@@ -1,6 +1,7 @@
 #define COMMON_IMPLEMENTATION
 #include "common.h"
 
+#include "platform_timing.c"
 #include "profile.c"
 #include "json_parse.c"
 #include "haversine_impl.c"
@@ -29,22 +30,15 @@ int main(int args_count, char **args)
   arena = arena_make(GB(4));
 
   String source = {0};
-  PROFILE_SCOPE("read")
+  PROFILE_SCOPE_BANDWIDTH("read", file_size(args[1]))
   {
     source = read_file_to_arena(&arena, args[1]);
   }
 
-  Haversine_Pair *pairs = NULL;
+  usize min_pair_bytes = 6 * 4; // 6 chars for something like "x0:0" (at least) and 4 of those
+  usize max_pairs = source.count / min_pair_bytes; // Roughly, overestimate at least
+  Haversine_Pair * pairs = arena_calloc(&arena, max_pairs, Haversine_Pair);
   i32 pair_count = 0;
-  usize max_pairs = 0;
-  PROFILE_SCOPE("haversine alloc")
-  {
-    usize min_pair_bytes = 6 * 4; // 6 chars for something like "x0:0" (at least) and 4 of those
-    max_pairs = source.count / min_pair_bytes; // Roughly, overestimate at least
-
-    pairs = arena_calloc(&arena, max_pairs, Haversine_Pair);
-    pair_count = 0;
-  }
 
   JSON_Object *root = NULL;
   root = parse_json(&arena, source);
@@ -56,24 +50,21 @@ int main(int args_count, char **args)
   {
     for (JSON_Object *cursor = pairs_object->first_child; cursor && pair_count < max_pairs; cursor = cursor->next_sibling)
     {
-      PROFILE_SCOPE("child convert")
+      Haversine_Pair pair =
       {
-        Haversine_Pair pair =
-        {
-          .x0 = json_object_to_f64(lookup_json_object(cursor, String("x0"))),
-          .y0 = json_object_to_f64(lookup_json_object(cursor, String("y0"))),
-          .x1 = json_object_to_f64(lookup_json_object(cursor, String("x1"))),
-          .y1 = json_object_to_f64(lookup_json_object(cursor, String("y1"))),
-        };
+        .x0 = json_object_to_f64(lookup_json_object(cursor, String("x0"))),
+        .y0 = json_object_to_f64(lookup_json_object(cursor, String("y0"))),
+        .x1 = json_object_to_f64(lookup_json_object(cursor, String("x1"))),
+        .y1 = json_object_to_f64(lookup_json_object(cursor, String("y1"))),
+      };
 
-        pairs[pair_count] = pair;
-        pair_count += 1;
-      }
+      pairs[pair_count] = pair;
+      pair_count += 1;
     }
   }
 
   f64 sum = 0.0;
-  PROFILE_SCOPE("sum")
+  PROFILE_SCOPE_BANDWIDTH("sum", pair_count * sizeof(Haversine_Pair))
   {
     for (usize i = 0; i < pair_count; i++)
     {

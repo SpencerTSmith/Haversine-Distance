@@ -373,15 +373,18 @@ void bump_array_pop(Bump_Array<T, N> *array)
 // Returns size of file, or 0 if it can't open the file
 usize read_file_to_memory(const char *name, u8 *buffer, usize buffer_size)
 {
+  usize byte_count = 0;
+
   FILE *file = fopen(name, "rb");
-  if (file == NULL)
+  if (file)
+  {
+    byte_count = fread(buffer, sizeof(u8), buffer_size, file);
+    fclose(file);
+  }
+  else
   {
     LOG_ERROR("Unable to open file: %s", name);
-    return 0;
   }
-
-  usize byte_count = fread(buffer, sizeof(u8), buffer_size, file);
-  fclose(file);
 
   return byte_count;
 }
