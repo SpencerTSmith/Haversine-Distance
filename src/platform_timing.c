@@ -2,6 +2,7 @@
 
 #include <x86intrin.h>
 #include <sys/time.h>
+#include <sys/resource.h>
 
 // NOTE(ss): Will need to be defined per OS
 static
@@ -75,3 +76,15 @@ f64 cpu_time_in_seconds(u64 cpu_time, u64 cpu_timer_frequency)
   return result;
 }
 
+static
+u64 read_os_page_faults()
+{
+  struct rusage usage = {0};
+  getrusage(RUSAGE_SELF, &usage);
+
+  u64 hard_faults = usage.ru_majflt;
+  u64 soft_faults = usage.ru_minflt;
+
+  // For now just count both, maybe we get more specific later
+  return hard_faults + soft_faults;
+}
