@@ -2,7 +2,7 @@
 #define COMMON_IMPLEMENTATION
 #include "common.h"
 
-#include "repetition_test.c"
+#include "benchmark/repetition_test.c"
 
 typedef struct Operation_Parameters Operation_Parameters;
 struct Operation_Parameters
@@ -95,6 +95,13 @@ int main(int arg_count, char **args)
     .count = size,
   };
 
+  // Touch the memory once so no page faults in bench
+  // for (usize i = 0; i < buffer.count; i++)
+  // {
+  //   volatile u8 write = 0;
+  //   buffer.data[i] = write;
+  // }
+
   Operation_Parameters params =
   {
     .buffer    = buffer,
@@ -115,7 +122,6 @@ int main(int arg_count, char **args)
       Operation_Entry *entry = &test_entries[i];
 
       printf("\n--- %.*s ---\n", String_Format(entry->name));
-      printf("                                                          \r");
       repetition_tester_new_wave(tester, size, cpu_timer_frequency, seconds_to_try_for_min);
       entry->function(tester, &params);
     }

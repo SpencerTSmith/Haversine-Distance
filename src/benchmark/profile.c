@@ -1,4 +1,4 @@
-#include "common.h"
+#include "../common.h"
 #include "platform_timing.h"
 
 // Just for storing actual timing info and where we need to save that to

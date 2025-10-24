@@ -1,8 +1,8 @@
 #define COMMON_IMPLEMENTATION
 #include "common.h"
 
-#include "platform_timing.c"
-#include "profile.c"
+#include "benchmark/platform_timing.c"
+#include "benchmark/profile.c"
 #include "json_parse.c"
 #include "haversine_impl.c"
 
@@ -26,8 +26,7 @@ int main(int args_count, char **args)
 
   begin_profiling();
 
-  Arena arena = {0};
-  arena = arena_make(GB(4));
+  Arena arena = arena_make(.reserve_size = GB(4));
 
   String source = {0};
   PROFILE_SCOPE_BANDWIDTH("read", file_size(args[1]))
@@ -40,8 +39,8 @@ int main(int args_count, char **args)
   Haversine_Pair * pairs = arena_calloc(&arena, max_pairs, Haversine_Pair);
   i32 pair_count = 0;
 
-  JSON_Object *root = NULL;
-  root = parse_json(&arena, source);
+
+  JSON_Object *root = parse_json(&arena, source);
 
   f64 haversine_sum = 0.0;
 

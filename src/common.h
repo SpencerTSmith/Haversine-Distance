@@ -33,8 +33,6 @@ extern "C"
 #include <string.h>
 #include <stdarg.h>
 
-#include <sys/stat.h>
-
 /////////////////
 // QOL/UTILITY
 ////////////////
@@ -173,8 +171,46 @@ void log_message(Log_Level level, const char *file, usize line, const char *mess
 #endif // DEBUG
 
 /////////////////
-// MEMORY ARENA
+// OS
 ////////////////
+
+// Basically stolen from Rad Debugger
+#if defined(_WIN32)
+  #define OS_WINDOWS 1
+#elif defined(__gnu_linux__) || defined(__linux__)
+  #define OS_LINUX 1
+#elif defined(__APPLE__) && defined(__MACH__)
+  #define OS_MAC 1
+#else
+  #error This OS is not supported.
+#endif
+
+typedef enum OS_Allocation_Flags
+{
+  OS_ALLOCATION_COMMIT    = (1 << 2),
+  OS_ALLOCATION_2MB_PAGES = (1 << 3),
+  OS_ALLOCATION_1GB_PAGES = (1 << 3),
+  OS_ALLOCATION_PREFAULT  = (1 << 4),
+} OS_Allocation_Flags;
+
+// TODO: Mac and Windows
+#ifdef OS_LINUX
+ #include <sys/mman.h>
+ #include <sys/stat.h>
+#elif OS_WINDOWS
+ #include <windows.h>
+#endif
+
+void *os_allocate(usize size, OS_Allocation_Flags flags);
+
+b32 os_commit(void *start, usize size);
+
+void os_deallocate(void *start, usize size);
+
+/////////////////
+// MEMORY
+////////////////
+
 typedef enum Arena_Flags
 {
   ARENA_FLAG_NONE          = 0,
@@ -186,17 +222,38 @@ typedef struct Arena Arena;
 struct Arena
 {
   u8    *base;
-  isize capacity;
+  isize reserve_size;
+  isize commit_size;
   isize next_offset;
 
   Arena_Flags flags;
 };
 
+typedef struct Arena_Args Arena_Args;
+struct Arena_Args
+{
+  isize reserve_size;
+  isize commit_size;
+  Arena_Flags flags;
+
+  String make_call_file;
+  isize  make_call_line;
+};
+
 #define EXT_ARENA_ALLOCATION 0xffffffff
+#define ARENA_DEFAULT_RESERVE_SIZE MB(256)
+#define ARENA_DEFAULT_COMMIT_SIZE  KB(64)
 
 // Allocates it's own memory
-Arena arena_make(isize reserve_size);
-Arena arena_make_backed(u8 *backing_buffer, isize backing_size);
+Arena __arena_make(Arena_Args *args);
+
+#define arena_make(...) __arena_make(&(Arena_Args){                              \
+                                     .reserve_size = ARENA_DEFAULT_RESERVE_SIZE, \
+                                     .commit_size  = ARENA_DEFAULT_COMMIT_SIZE,  \
+                                     .flags        = 0,                          \
+                                     .make_call_file = String(__FILE__),         \
+                                     .make_call_line = __LINE__,                 \
+                                     __VA_ARGS__})
 
 void arena_free(Arena *arena);
 
@@ -463,38 +520,84 @@ void log_message(Log_Level level, const char *file, usize line, const char *mess
   fprintf(stream, "\n");
 }
 
-Arena arena_make(isize reserve_size)
+#ifdef OS_LINUX
+void *os_allocate(usize size, OS_Allocation_Flags flags)
 {
+  u32 prot_flags = PROT_NONE; // By default only reserve
+  if (flags & OS_ALLOCATION_COMMIT)
+  {
+    prot_flags |= (PROT_READ|PROT_WRITE);
+  }
+
+  u32 map_flags = MAP_PRIVATE|MAP_ANONYMOUS;
+  if (flags & OS_ALLOCATION_2MB_PAGES)
+  {
+    prot_flags |= (MAP_HUGETLB|MAP_HUGE_2MB);
+  }
+  else if (flags & OS_ALLOCATION_1GB_PAGES) // Can't have both
+  {
+    prot_flags |= (MAP_HUGETLB|MAP_HUGE_1GB);
+  }
+
+  if (flags & OS_ALLOCATION_PREFAULT)
+  {
+    prot_flags |= MAP_POPULATE;
+  }
+
+  void *result = mmap(NULL, size, prot_flags, map_flags, -1, 0);
+
+  if (result == MAP_FAILED)
+  {
+    result = NULL;
+  }
+
+  return result;
+}
+
+b32 os_commit(void *start, usize size)
+{
+  mprotect(start, size, PROT_READ|PROT_WRITE);
+  return true;
+}
+
+void os_deallocate(void *start, usize size)
+{
+  munmap(start, size);
+}
+
+void os_decommit(void *start, usize size)
+{
+  mprotect(start, size, PROT_NONE);
+}
+#elif OS_WINDOWS
+// TODO
+#elif OS_MAC
+// TODO
+#endif
+
+Arena __arena_make(Arena_Args *args)
+{
+  // TODO: Large pages, verify that OS and CPU page size actually is 4kb, etc
+  isize res = ALIGN_ROUND_UP(args->reserve_size, KB(4));
+  isize com = ALIGN_ROUND_UP(args->commit_size,  KB(4));
+  ASSERT(res >= com, "Reserve size must be greater than or equal to commit size.");
+
   Arena arena = {0};
 
-  // NOTE(ss): Calloc will return page-aligned memory so I don't think it is
-  // necessary to make sure that the alignment suffices
-  arena.base = (u8 *)calloc(reserve_size, 1);
-
+  arena.base = (u8 *)os_allocate(res, 0);
   if (arena.base == NULL)
   {
-    LOG_FATAL("Failed to allocate arena memory", EXT_ARENA_ALLOCATION);
+    LOG_FATAL("Failed to allocate arena memory (%.*s:%ld)", EXT_ARENA_ALLOCATION,
+              args->make_call_file, args->make_call_line);
     return arena;
   }
 
-  arena.capacity = reserve_size;
-  arena.next_offset = 0;
+  os_commit(arena.base, com);
 
-  return arena;
-}
-
-Arena arena_make_backed(u8 *backing_buffer, isize backing_size)
-{
-  ASSERT(backing_buffer != NULL, "Backing buffer for arena must not be NULL!");
-  ASSERT(backing_size   != 0,    "Backing buffer size for arena must not be 0!");
-
-  Arena arena = {0};
-
-  arena.base     = backing_buffer;
-  arena.capacity = backing_size;
-
-  // Shitty cpp compilers complain we don't do it like this
-  arena.flags = (Arena_Flags)(arena.flags | ARENA_FLAG_BUFFER_BACKED);
+  arena.reserve_size = res;
+  arena.commit_size  = com;
+  arena.next_offset  = 0;
+  arena.flags        = args->flags;
 
   return arena;
 }
@@ -503,7 +606,8 @@ void arena_free(Arena *arena)
 {
   if (!(arena->flags & ARENA_FLAG_BUFFER_BACKED))
   {
-    free(arena->base);
+    os_decommit(arena->base, arena->commit_size);
+    os_deallocate(arena->base, arena->reserve_size);
   }
 
   ZERO_STRUCT(arena);
@@ -514,21 +618,34 @@ void *arena_alloc(Arena *arena, isize size, isize alignment) {
 
   isize aligned_offset = ALIGN_ROUND_UP(arena->next_offset, alignment);
 
-  // Do we need a bigger buffer?
-  if ((aligned_offset + size) > arena->capacity)
-  {
-    u64 needed_capacity = aligned_offset + size;
+  void *ptr = arena->base + aligned_offset;
 
-    LOG_FATAL("Not enough memory in arena, NEED: %ld bytes HAVE: %ld bytes",
-              EXT_ARENA_ALLOCATION, needed_capacity, arena->capacity);
-    return NULL;
+  // Do we need to commit memory, or even need to crash and say to reserve more?
+  isize desired_commit_size = aligned_offset + size;
+  if (desired_commit_size > arena->commit_size)
+  {
+    isize commit_size = ALIGN_ROUND_UP(desired_commit_size, KB(4));
+    if (commit_size < arena->reserve_size)
+    {
+      printf("HERE! Needed: %ld, Committed: %ld\n", commit_size, arena->commit_size);
+      os_commit(arena->base, size);
+      arena->commit_size = commit_size;
+    }
+    else
+    {
+      LOG_FATAL("Not enough reserved memory in arena, DESIRED: %ld bytes RESERVED: %ld bytes",
+                EXT_ARENA_ALLOCATION, desired_commit_size, arena->reserve_size);
+      ptr = NULL;
+    }
   }
 
-  void *ptr = arena->base + aligned_offset;
-  ZERO_SIZE(ptr, size); // make sure memory is zeroed out
-
-  // now move the offset
-  arena->next_offset = aligned_offset + size;
+  // If we either had the needed memory already, or could commit more
+  if (ptr)
+  {
+    ZERO_SIZE(ptr, size); // make sure memory is zeroed out
+    // now move the offset
+    arena->next_offset = desired_commit_size;
+  }
 
   return ptr;
 }

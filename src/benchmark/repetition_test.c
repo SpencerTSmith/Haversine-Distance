@@ -104,14 +104,14 @@ void print_repetition_test_values(const char *label, Repetition_Test_Values valu
   if (cpu_timer_frequency)
   {
     f64 seconds = cpu_time_in_seconds(time, cpu_timer_frequency);
-    printf(" (%fms)", 1000.0 * seconds);
+    printf(" (%.4fms)", 1000.0 * seconds);
 
     u64 byte_count = values.v[REPTEST_VALUE_BYTE_COUNT] / divisor;
     if (byte_count)
     {
       f64 gb_per_s = (f64)byte_count / (f64)GB(1) / seconds;
 
-      printf(" %f GB/s", gb_per_s);
+      printf(" %.4f GB/s", gb_per_s);
     }
 
     u64 page_faults = values.v[REPTEST_VALUE_PAGE_FAULTS] / divisor;
@@ -119,7 +119,7 @@ void print_repetition_test_values(const char *label, Repetition_Test_Values valu
     {
       f64 kb_per_fault = ((f64)byte_count / KB(1)) / (f64)page_faults;
 
-      printf(", %lu faults (%f kb/fault)", page_faults, kb_per_fault);
+      printf(", %lu faults (%.4f kb/fault)", page_faults, kb_per_fault);
     }
   }
 }
@@ -197,8 +197,10 @@ b32 repetition_tester_is_testing(Repetition_Tester *tester)
           // Restart time to find new min
           tester->tests_start_time = current_time;
 
+          printf("                                                                                        \r");
           print_repetition_test_values("MIN", results->min, tester->cpu_timer_frequency, 1);
-          printf("                                                          \r");
+          printf("\r");
+          fflush(stdout);
         }
 
         // Reset
@@ -219,6 +221,8 @@ b32 repetition_tester_is_testing(Repetition_Tester *tester)
 
           if (results->test_count)
           {
+            printf("                                                          \r");
+            fflush(stdout);
             print_repetition_test_values("AVG", results->total, tester->cpu_timer_frequency, results->test_count);
             printf("\n");
           }
@@ -230,7 +234,7 @@ b32 repetition_tester_is_testing(Repetition_Tester *tester)
   return tester->mode == REPTEST_MODE_TESTING;
 }
 
-
+// You provide the definitions for these
 typedef struct Operation_Parameters Operation_Parameters;
 typedef void Operation_Function(Repetition_Tester *tester, Operation_Parameters *params);
 
