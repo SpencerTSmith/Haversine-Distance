@@ -36,9 +36,10 @@ int main(int args_count, char **args)
 
   usize min_pair_bytes = 6 * 4; // 6 chars for something like "x0:0" (at least) and 4 of those
   usize max_pairs = source.count / min_pair_bytes; // Roughly, overestimate at least
-  Haversine_Pair * pairs = arena_calloc(&arena, max_pairs, Haversine_Pair);
+  Haversine_Pair *pairs = arena_calloc(&arena, max_pairs, Haversine_Pair);
   i32 pair_count = 0;
 
+  printf("HERE!\n");
 
   JSON_Object *root = parse_json(&arena, source);
 

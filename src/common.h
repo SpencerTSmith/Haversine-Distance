@@ -617,19 +617,20 @@ void *arena_alloc(Arena *arena, isize size, isize alignment) {
   ASSERT(arena->base != NULL, "Arena memory is null");
 
   isize aligned_offset = ALIGN_ROUND_UP(arena->next_offset, alignment);
-
   void *ptr = arena->base + aligned_offset;
 
-  // Do we need to commit memory, or even need to crash and say to reserve more?
-  isize desired_commit_size = aligned_offset + size;
+  isize desired_capacity = aligned_offset + size;
+
+  // Do we need to commit memory?
+  isize desired_commit_size = ALIGN_ROUND_UP(desired_capacity, KB(4));
   if (desired_commit_size > arena->commit_size)
   {
-    isize commit_size = ALIGN_ROUND_UP(desired_commit_size, KB(4));
+    isize commit_diff = desired_commit_size - arena->commit_size;
+    isize commit_size = ALIGN_ROUND_UP(commit_diff, KB(4)); // Commit only in pages
     if (commit_size < arena->reserve_size)
     {
-      printf("HERE! Needed: %ld, Committed: %ld\n", commit_size, arena->commit_size);
-      os_commit(arena->base, size);
-      arena->commit_size = commit_size;
+      os_commit(arena->base + arena->commit_size, commit_size);
+      arena->commit_size = desired_commit_size;
     }
     else
     {
@@ -642,9 +643,8 @@ void *arena_alloc(Arena *arena, isize size, isize alignment) {
   // If we either had the needed memory already, or could commit more
   if (ptr)
   {
-    ZERO_SIZE(ptr, size); // make sure memory is zeroed out
-    // now move the offset
-    arena->next_offset = desired_commit_size;
+    ZERO_SIZE(ptr, size);
+    arena->next_offset = desired_capacity;
   }
 
   return ptr;
