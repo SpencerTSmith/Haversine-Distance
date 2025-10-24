@@ -190,7 +190,7 @@ typedef enum OS_Allocation_Flags
   OS_ALLOCATION_COMMIT    = (1 << 2),
   OS_ALLOCATION_2MB_PAGES = (1 << 3),
   OS_ALLOCATION_1GB_PAGES = (1 << 3),
-  OS_ALLOCATION_PREFAULT  = (1 << 4),
+  OS_ALLOCATION_PREFAULT  = (1 << 4), // Need to see if Windows even has an equivalent?
 } OS_Allocation_Flags;
 
 // TODO: Mac and Windows
@@ -532,16 +532,16 @@ void *os_allocate(usize size, OS_Allocation_Flags flags)
   u32 map_flags = MAP_PRIVATE|MAP_ANONYMOUS;
   if (flags & OS_ALLOCATION_2MB_PAGES)
   {
-    prot_flags |= (MAP_HUGETLB|MAP_HUGE_2MB);
+    map_flags |= (MAP_HUGETLB|MAP_HUGE_2MB);
   }
   else if (flags & OS_ALLOCATION_1GB_PAGES) // Can't have both
   {
-    prot_flags |= (MAP_HUGETLB|MAP_HUGE_1GB);
+    map_flags |= (MAP_HUGETLB|MAP_HUGE_1GB);
   }
 
   if (flags & OS_ALLOCATION_PREFAULT)
   {
-    prot_flags |= MAP_POPULATE;
+    map_flags |= MAP_POPULATE;
   }
 
   void *result = mmap(NULL, size, prot_flags, map_flags, -1, 0);
@@ -606,7 +606,6 @@ void arena_free(Arena *arena)
 {
   if (!(arena->flags & ARENA_FLAG_BUFFER_BACKED))
   {
-    os_decommit(arena->base, arena->commit_size);
     os_deallocate(arena->base, arena->reserve_size);
   }
 

@@ -91,7 +91,7 @@ int main(int arg_count, char **args)
   usize size = file_size(args[1]);
   String buffer =
   {
-    .data  = malloc(size),
+    .data  = os_allocate(size, OS_ALLOCATION_COMMIT|OS_ALLOCATION_PREFAULT),
     .count = size,
   };
 

@@ -13,6 +13,8 @@ struct Operation_Parameters
 static
 void write_all_bytes_no_malloc(Repetition_Tester *tester, Operation_Parameters *params)
 {
+  params->buffer.data = os_allocate(params->buffer.count, OS_ALLOCATION_COMMIT);
+
   while (repetition_tester_is_testing(tester))
   {
       repetition_tester_begin_time(tester);
@@ -24,6 +26,8 @@ void write_all_bytes_no_malloc(Repetition_Tester *tester, Operation_Parameters *
 
       repetition_tester_count_bytes(tester, params->buffer.count);
   }
+
+  os_deallocate(params->buffer.data, params->buffer.count);
 }
 
 static
@@ -31,7 +35,7 @@ void write_all_bytes_malloc(Repetition_Tester *tester, Operation_Parameters *par
 {
   while (repetition_tester_is_testing(tester))
   {
-      params->buffer.data = malloc(params->buffer.count);
+      params->buffer.data = os_allocate(params->buffer.count, OS_ALLOCATION_COMMIT);
 
       repetition_tester_begin_time(tester);
       for (usize i = 0; i < params->buffer.count; i++)
@@ -42,7 +46,7 @@ void write_all_bytes_malloc(Repetition_Tester *tester, Operation_Parameters *par
 
       repetition_tester_count_bytes(tester, params->buffer.count);
 
-      free(params->buffer.data);
+      os_deallocate(params->buffer.data, params->buffer.count);
   }
 }
 
@@ -68,7 +72,7 @@ int main(int arg_count, char **args)
 
   Operation_Parameters params =
   {
-    .buffer    = buffer,
+    .buffer = buffer,
   };
 
   u64 cpu_timer_frequency = estimate_cpu_freq();
@@ -87,12 +91,6 @@ int main(int arg_count, char **args)
       printf("\n--- %.*s ---\n", String_Format(entry->name));
       printf("                                                          \r");
       repetition_tester_new_wave(tester, size, cpu_timer_frequency, seconds_to_try_for_min);
-
-      buffer = (String)
-      {
-        .data  = malloc(size),
-        .count = size,
-      };
 
       entry->function(tester, &params);
     }
