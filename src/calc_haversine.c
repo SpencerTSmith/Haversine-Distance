@@ -26,7 +26,11 @@ int main(int args_count, char **args)
 
   begin_profiling();
 
-  Arena arena = arena_make(.reserve_size = GB(4));
+  Arena arena;
+  PROFILE_SCOPE("arena")
+  {
+    arena = arena_make(.reserve_size = GB(64));
+  }
 
   String source = {0};
   PROFILE_SCOPE_BANDWIDTH("read", file_size(args[1]))
@@ -38,8 +42,6 @@ int main(int args_count, char **args)
   usize max_pairs = source.count / min_pair_bytes; // Roughly, overestimate at least
   Haversine_Pair *pairs = arena_calloc(&arena, max_pairs, Haversine_Pair);
   i32 pair_count = 0;
-
-  printf("HERE!\n");
 
   JSON_Object *root = parse_json(&arena, source);
 
@@ -106,10 +108,7 @@ int main(int args_count, char **args)
     }
   }
 
-  PROFILE_SCOPE("free")
-  {
-    arena_free(&arena);
-  }
-
   end_profiling();
+
+  arena_free(&arena);
 }

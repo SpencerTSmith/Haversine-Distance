@@ -187,10 +187,11 @@ void log_message(Log_Level level, const char *file, usize line, const char *mess
 
 typedef enum OS_Allocation_Flags
 {
-  OS_ALLOCATION_COMMIT    = (1 << 2),
-  OS_ALLOCATION_2MB_PAGES = (1 << 3),
-  OS_ALLOCATION_1GB_PAGES = (1 << 3),
-  OS_ALLOCATION_PREFAULT  = (1 << 4), // Need to see if Windows even has an equivalent?
+  OS_ALLOCATION_NONE      = 0,
+  OS_ALLOCATION_COMMIT    = (1 << 0),
+  OS_ALLOCATION_2MB_PAGES = (1 << 1),
+  OS_ALLOCATION_1GB_PAGES = (1 << 2),
+  OS_ALLOCATION_PREFAULT  = (1 << 3), // Need to see if Windows even has an equivalent?
 } OS_Allocation_Flags;
 
 // TODO: Mac and Windows
@@ -256,6 +257,7 @@ Arena __arena_make(Arena_Args *args);
                                      __VA_ARGS__})
 
 void arena_free(Arena *arena);
+void arena_print_stats(Arena *arena);
 
 void *arena_alloc(Arena *arena, isize size, isize alignment);
 void arena_pop_to(Arena *arena, isize offset);
@@ -268,10 +270,10 @@ String read_file_to_arena(Arena *arena, const char *name);
 // Helper Macros ----------------------------------------------------------------
 
 // specify the arena, the number of elements, and the type... c(ounted)alloc
-#define arena_calloc(b, count, T) (T *)arena_alloc((b), sizeof(T) * (count), alignof(T))
+#define arena_calloc(a, count, T) (T *)arena_alloc((a), sizeof(T) * (count), alignof(T))
 
 // Useful for structs, much like new in other languages
-#define arena_new(b, T) arena_calloc(b, 1, T)
+#define arena_new(a, T) arena_calloc(a, 1, T)
 
 // Scratch Use Case -------------------------------------------------------------
 
@@ -584,7 +586,7 @@ Arena __arena_make(Arena_Args *args)
 
   Arena arena = {0};
 
-  arena.base = (u8 *)os_allocate(res, 0);
+  arena.base = (u8 *)os_allocate(res, OS_ALLOCATION_NONE);
   if (arena.base == NULL)
   {
     LOG_FATAL("Failed to allocate arena memory (%.*s:%ld)", EXT_ARENA_ALLOCATION,
@@ -610,6 +612,13 @@ void arena_free(Arena *arena)
   }
 
   ZERO_STRUCT(arena);
+}
+
+void arena_print_stats(Arena *arena)
+{
+  printf("Arena ---\n");
+  printf("  Reserved:  %ld\n", arena->reserve_size);
+  printf("  Committed: %ld\n", arena->commit_size);
 }
 
 void *arena_alloc(Arena *arena, isize size, isize alignment) {

@@ -17,14 +17,14 @@ void write_all_bytes_no_malloc(Repetition_Tester *tester, Operation_Parameters *
 
   while (repetition_tester_is_testing(tester))
   {
-      repetition_tester_begin_time(tester);
-      for (usize i = 0; i < params->buffer.count; i++)
-      {
-        params->buffer.data[i] = (u8)i;
-      }
-      repetition_tester_close_time(tester);
+    repetition_tester_begin_time(tester);
+    for (usize i = 0; i < params->buffer.count; i++)
+    {
+      params->buffer.data[i] = (u8)i;
+    }
+    repetition_tester_close_time(tester);
 
-      repetition_tester_count_bytes(tester, params->buffer.count);
+    repetition_tester_count_bytes(tester, params->buffer.count);
   }
 
   os_deallocate(params->buffer.data, params->buffer.count);
@@ -35,18 +35,18 @@ void write_all_bytes_malloc(Repetition_Tester *tester, Operation_Parameters *par
 {
   while (repetition_tester_is_testing(tester))
   {
-      params->buffer.data = os_allocate(params->buffer.count, OS_ALLOCATION_COMMIT);
+    params->buffer.data = os_allocate(params->buffer.count, OS_ALLOCATION_COMMIT);
 
-      repetition_tester_begin_time(tester);
-      for (usize i = 0; i < params->buffer.count; i++)
-      {
-        params->buffer.data[i] = (u8)i;
-      }
-      repetition_tester_close_time(tester);
+    repetition_tester_begin_time(tester);
+    for (usize i = 0; i < params->buffer.count; i++)
+    {
+      params->buffer.data[i] = (u8)i;
+    }
+    repetition_tester_close_time(tester);
 
-      repetition_tester_count_bytes(tester, params->buffer.count);
+    repetition_tester_count_bytes(tester, params->buffer.count);
 
-      os_deallocate(params->buffer.data, params->buffer.count);
+    os_deallocate(params->buffer.data, params->buffer.count);
   }
 }
 

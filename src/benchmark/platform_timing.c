@@ -118,7 +118,7 @@ Virtual_Address_Bits get_virtual_address_bits_2MB(void *pointer)
   return bits;
 }
 
-Virtual_Address_Bits get_virtual_address_bits_4GB(void *pointer)
+Virtual_Address_Bits get_virtual_address_bits_1GB(void *pointer)
 {
   u64 address = (u64)pointer;
   Virtual_Address_Bits bits =
