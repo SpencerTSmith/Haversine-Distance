@@ -1,6 +1,8 @@
 #define COMMON_IMPLEMENTATION
 #include "common.h"
 
+#include "benchmark/profile.h"
+
 #include "benchmark/platform_timing.c"
 #include "benchmark/profile.c"
 #include "json_parse.c"
@@ -44,8 +46,6 @@ int main(int args_count, char **args)
   i32 pair_count = 0;
 
   JSON_Object *root = parse_json(&arena, source);
-
-  f64 haversine_sum = 0.0;
 
   JSON_Object *pairs_object = lookup_json_object(root, String("pairs"));
   if (pairs)

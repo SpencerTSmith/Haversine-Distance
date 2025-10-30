@@ -2,7 +2,12 @@
 #define COMMON_IMPLEMENTATION
 #include "common.h"
 
+#include "benchmark/repetition_test.h"
+
 #include "benchmark/repetition_test.c"
+
+#include <fcntl.h>
+#include <unistd.h>
 
 typedef struct Operation_Parameters Operation_Parameters;
 struct Operation_Parameters

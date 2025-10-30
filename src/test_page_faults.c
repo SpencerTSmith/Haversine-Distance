@@ -2,6 +2,7 @@
 #define COMMON_IMPLEMENTATION
 #include "common.h"
 
+#include "benchmark/repetition_test.h"
 #include "benchmark/repetition_test.c"
 
 typedef struct Operation_Parameters Operation_Parameters;
@@ -18,7 +19,7 @@ void write_all_bytes_no_malloc(Repetition_Tester *tester, Operation_Parameters *
   while (repetition_tester_is_testing(tester))
   {
     repetition_tester_begin_time(tester);
-    for (usize i = 0; i < params->buffer.count; i++)
+    for (isize i = 0; i < params->buffer.count; i++)
     {
       params->buffer.data[i] = (u8)i;
     }
@@ -38,7 +39,7 @@ void write_all_bytes_malloc(Repetition_Tester *tester, Operation_Parameters *par
     params->buffer.data = os_allocate(params->buffer.count, OS_ALLOCATION_COMMIT);
 
     repetition_tester_begin_time(tester);
-    for (usize i = 0; i < params->buffer.count; i++)
+    for (isize i = 0; i < params->buffer.count; i++)
     {
       params->buffer.data[i] = (u8)i;
     }
@@ -83,7 +84,7 @@ int main(int arg_count, char **args)
   {
     Repetition_Tester testers[STATIC_ARRAY_COUNT(test_entries)] = {0};
 
-    for (isize i = 0; i < STATIC_ARRAY_COUNT(test_entries); i++)
+    for (usize i = 0; i < STATIC_ARRAY_COUNT(test_entries); i++)
     {
       Repetition_Tester *tester = &testers[i];
       Operation_Entry *entry = &test_entries[i];

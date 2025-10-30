@@ -38,7 +38,7 @@ typedef struct JSON_Parser JSON_Parser;
 struct JSON_Parser
 {
   String source;
-  usize  at;
+  isize  at;
   b32    had_error;
 };
 
@@ -459,7 +459,7 @@ f64 json_object_to_f64(JSON_Object *object)
 
   String val = object->value;
   // Get sign.
-  usize at = 0;
+  isize at = 0;
 
   f64 sign = 1.0;
   if (val.count > at && val.data[at] == '-')
