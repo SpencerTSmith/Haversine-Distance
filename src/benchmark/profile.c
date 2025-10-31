@@ -21,7 +21,7 @@ void end_profiling()
 
   if (total_delta)
   {
-    u64 freq = estimate_cpu_freq();
+    u64 freq = estimate_cpu_timer_freq();
     printf("[PROFILE] Total duration: %lu (%f ms @ %lu Hz)\n", total_delta, (f64)total_delta / (f64)freq * 1000.0, freq);
 
     f64 exclusive_percent = 0.0;

@@ -2,8 +2,8 @@
 #define COMMON_IMPLEMENTATION
 #include "common.h"
 
-#include "benchmark/repetition_test.h"
-#include "benchmark/repetition_test.c"
+#include "benchmark/benchmark_inc.h"
+#include "benchmark/benchmark_inc.c"
 
 typedef struct Operation_Parameters Operation_Parameters;
 struct Operation_Parameters
@@ -18,14 +18,16 @@ void write_all_bytes_no_malloc(Repetition_Tester *tester, Operation_Parameters *
 
   while (repetition_tester_is_testing(tester))
   {
+    String buffer = params->buffer;
+
     repetition_tester_begin_time(tester);
-    for (isize i = 0; i < params->buffer.count; i++)
+    for (isize i = 0; i < buffer.count; i++)
     {
-      params->buffer.data[i] = (u8)i;
+      buffer.data[i] = (u8)i;
     }
     repetition_tester_close_time(tester);
 
-    repetition_tester_count_bytes(tester, params->buffer.count);
+    repetition_tester_count_bytes(tester, buffer.count);
   }
 
   os_deallocate(params->buffer.data, params->buffer.count);
@@ -38,14 +40,16 @@ void write_all_bytes_malloc(Repetition_Tester *tester, Operation_Parameters *par
   {
     params->buffer.data = os_allocate(params->buffer.count, OS_ALLOCATION_COMMIT);
 
+    String buffer = params->buffer;
+
     repetition_tester_begin_time(tester);
-    for (isize i = 0; i < params->buffer.count; i++)
+    for (isize i = 0; i < buffer.count; i++)
     {
-      params->buffer.data[i] = (u8)i;
+      buffer.data[i] = (u8)i;
     }
     repetition_tester_close_time(tester);
 
-    repetition_tester_count_bytes(tester, params->buffer.count);
+    repetition_tester_count_bytes(tester, buffer.count);
 
     os_deallocate(params->buffer.data, params->buffer.count);
   }
@@ -76,7 +80,7 @@ int main(int arg_count, char **args)
     .buffer = buffer,
   };
 
-  u64 cpu_timer_frequency = estimate_cpu_freq();
+  u64 cpu_timer_frequency = estimate_cpu_timer_freq();
 
   u32 seconds_to_try_for_min = atoi(args[1]);
 

@@ -1,24 +1,41 @@
 SHELL := bash
 
-CFLAGS := -g -Wextra -Wall -std=c99 -DDEBUG -DPROFILE
+CFLAGS := -g -O1 -Wall -std=c99 -DDEBUG -DPROFILE
 
-json:
-	gcc ${CFLAGS} src/make_haversine_json.c -lm -o make.x
-	./make.x uniform $$RANDOM 10000000
+TRY_FOR_MIN_TIME := 5
 
-calc:
-	gcc ${CFLAGS} src/calc_haversine.c  -lm -o calc.x
-	./calc.x haversine_pairs.json solution_dump.data
+bin-folder:
+	mkdir -p bin
 
-test-file-apis:
+json: bin-folder
+	gcc ${CFLAGS} src/make_haversine_json.c -lm -o bin/make.x
+	bin/make.x uniform $$RANDOM 10000000
+
+calc: bin-folder
+	gcc ${CFLAGS} src/calc_haversine.c  -lm -o bin/calc.x
+	bin/calc.x haversine_pairs.json solution_dump.data
+
+test-file-apis: bin-folder
 	head -c 1G /dev/urandom > gb_file.txt
-	gcc ${CFLAGS} src/test_file_apis.c -o reptest_file_apis.x
-	./reptest_file_apis.x gb_file.txt 10
+	gcc ${CFLAGS} src/test_file_apis.c -o bin/reptest_file_apis.x
+	bin/reptest_file_apis.x gb_file.txt $(TRY_FOR_MIN_TIME)
 
-test-page-faults:
-	gcc ${CFLAGS} src/test_page_faults.c -o reptest_page_faults.x
-	./reptest_page_faults.x 10
+test-page-faults: bin-folder
+	gcc ${CFLAGS} src/test_page_faults.c -o bin/reptest_page_faults.x
+	bin/reptest_page_faults.x $(TRY_FOR_MIN_TIME)
 
-address-anatomy:
-	gcc ${CFLAGS} src/address_anatomy.c -o anatomy.x
-	./anatomy.x
+address-anatomy: bin-folder
+	gcc ${CFLAGS} src/address_anatomy.c -o bin/anatomy.x
+	bin/anatomy.x
+
+test-loop-deps: bin-folder
+	nasm -f elf64 -o bin/loop_deps.o src/loop_deps.asm
+	ar rcs bin/loop_deps.a bin/loop_deps.o
+	gcc ${CFLAGS} src/test_loop_dependencies.c bin/loop_deps.a -o bin/reptest_loops.x
+	bin/reptest_loops.x $(TRY_FOR_MIN_TIME)
+
+test-nops: bin-folder
+	nasm -f elf64 -o bin/loop_nops.o src/loop_nops.asm
+	ar rcs bin/loop_nops.a bin/loop_nops.o
+	gcc ${CFLAGS} src/test_nops.c bin/loop_nops.a -o bin/reptest_nops.x
+	bin/reptest_nops.x $(TRY_FOR_MIN_TIME)

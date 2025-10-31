@@ -2,9 +2,8 @@
 #define COMMON_IMPLEMENTATION
 #include "common.h"
 
-#include "benchmark/repetition_test.h"
-
-#include "benchmark/repetition_test.c"
+#include "benchmark/benchmark_inc.h"
+#include "benchmark/benchmark_inc.c"
 
 #include <fcntl.h>
 #include <unistd.h>
@@ -113,7 +112,7 @@ int main(int arg_count, char **args)
     .file_name = args[1],
   };
 
-  u64 cpu_timer_frequency = estimate_cpu_freq();
+  u64 cpu_timer_frequency = estimate_cpu_timer_freq();
 
   u32 seconds_to_try_for_min = atoi(args[2]);
 

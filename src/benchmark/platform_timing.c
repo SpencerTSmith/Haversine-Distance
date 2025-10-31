@@ -32,9 +32,9 @@ u64 read_cpu_timer(void)
 
 // Just an estimation, in microseconds
 static
-u64 estimate_cpu_freq(void)
+u64 estimate_cpu_timer_freq(void)
 {
-  u64 wait_milliseconds = 100;
+  u64 wait_milliseconds = 1000;
   u64 os_frequency = get_os_timer_freq();
 
   u64 cpu_start = read_cpu_timer();
@@ -77,7 +77,7 @@ f64 cpu_time_in_seconds(u64 cpu_time, u64 cpu_timer_frequency)
 }
 
 static
-u64 read_os_page_faults()
+u64 read_os_page_faults(void)
 {
   struct rusage usage = {0};
   getrusage(RUSAGE_SELF, &usage);
