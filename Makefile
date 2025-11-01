@@ -39,3 +39,9 @@ test-nops: bin-folder
 	ar rcs bin/loop_nops.a bin/loop_nops.o
 	gcc ${CFLAGS} src/test_nops.c bin/loop_nops.a -o bin/reptest_nops.x
 	bin/reptest_nops.x $(TRY_FOR_MIN_TIME)
+
+test-branches: bin-folder
+	nasm -f elf64 -o bin/loop_branch.o src/loop_branch.asm
+	ar rcs bin/loop_branch.a bin/loop_branch.o
+	gcc ${CFLAGS} src/test_branches.c bin/loop_branch.a -o bin/reptest_branches.x
+	bin/reptest_branches.x $(TRY_FOR_MIN_TIME)

@@ -174,7 +174,7 @@ void log_message(Log_Level level, const char *file, usize line, const char *mess
 // OS
 ////////////////
 
-// Basically stolen from Rad Debugger
+// Basically stolen from Rad Debugger, see what we are compiled for
 #if defined(_WIN32)
   #define OS_WINDOWS 1
 #elif defined(__gnu_linux__) || defined(__linux__)
@@ -198,6 +198,7 @@ typedef enum OS_Allocation_Flags
 #ifdef OS_LINUX
  #include <sys/mman.h>
  #include <sys/stat.h>
+ #include <sys/random.h>
 #elif OS_WINDOWS
  #include <windows.h>
 #endif
@@ -207,6 +208,8 @@ void *os_allocate(usize size, OS_Allocation_Flags flags);
 b32 os_commit(void *start, usize size);
 
 void os_deallocate(void *start, usize size);
+
+b32 os_fill_buffer_random(String buffer);
 
 /////////////////
 // MEMORY
@@ -570,6 +573,13 @@ void os_deallocate(void *start, usize size)
 void os_decommit(void *start, usize size)
 {
   mprotect(start, size, PROT_NONE);
+}
+
+b32 os_fill_buffer_random(String buffer)
+{
+  isize result = getrandom(buffer.data, buffer.count, GRND_NONBLOCK); // Probably don't want to block
+
+  return result == buffer.count;
 }
 #elif OS_WINDOWS
 // TODO
