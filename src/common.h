@@ -127,11 +127,22 @@ struct String
 
 #define String_Format(s) (int)s.count, s.data
 
-b8 strings_equal(String a, String b);
+b32 char_is_whitespace(u8 c);
+b32 char_is_digit(u8 c);
+
+u32 u32_hash_string(String string);
+b32 strings_equal(String a, String b);
+b32 string_starts_with(String prefix, String to_check);
+
+String string_advance(String string, isize advance);
+String string_trim_whitespace(String string);
+
+String string_from_c_string(char *pointer);
 
 /////////////////
 // LOGGING
 ////////////////
+
 #define LOG_ENUM(X) \
   X(LOG_FATAL)      \
   X(LOG_ERROR)      \
@@ -296,140 +307,10 @@ void scratch_end(Scratch *scratch);
 } // extern "C"
 #endif
 
-// C++ Garbage
-#ifdef __cplusplus
-
-// Bounds checked array with length info embedded
-template <typename T, isize N>
-struct Array
-{
-  T data[N];
-
-  static constexpr isize count() { return N; }
-
-  // Access
-  T& operator[](isize i)
-  {
-    ASSERT(i < N, "Array bounds check index greater than count");
-    return data[i];
-  }
-  const T& operator[](isize i) const
-  {
-    ASSERT(i < N, "Array bounds check index greater than count");
-    return data[i];
-  }
-
-  // Iteration
-  T* begin() { return data; }
-  T* end()   { return data + N; }
-  const T* begin() const { return data; }
-  const T* end()   const { return data + N; }
-};
-
-template <typename T>
-struct Slice
-{
-  T     *data;
-  isize count; // Don't modify it, obviously
-
-  // Access
-  T& operator[](isize i)
-  {
-    ASSERT(i < count, "Array bounds check index greater than count");
-    return data[i];
-  }
-  const T& operator[](isize i) const
-  {
-    ASSERT(i < count, "Array bounds check index greater than count");
-    return data[i];
-  }
-
-  // Iteration
-  T* begin() { return data; }
-  T* end()   { return data + count; }
-  const T* begin() const { return data; }
-  const T* end()   const { return data + count; }
-};
-
-// begin inclusive, end exclusive
-template <typename T, isize N>
-Slice<T> slice(Array<T, N> *array, isize begin, isize end)
-{
-  ASSERT(begin >= 0 && end <= array->count(), "Slice bounds must not lie outside backing array bounds");
-  ASSERT(begin < end, "Slice begin must come before end");
-
-  isize count = end - begin;
-
-  Slice<T> slice = {};
-  slice.data = &(*array)[begin];
-  slice.count = count;
-
-  return slice;
-}
-template <typename T>
-Slice<T> slice(Slice<T> _slice, isize begin, isize end)
-{
-  ASSERT(begin >= 0 && end <= _slice.count, "Slice bounds must not lie outside backing array bounds");
-  ASSERT(begin < end, "Slice begin must come before end");
-
-  isize count = end - begin;
-
-  Slice<T> slice = {};
-  slice.data = &_slice.data[begin];
-  slice.count = count;
-
-  return slice;
-}
-
-// Acts like a dynamic array, append, pop, etc but is backed by a statically sized array
-template <typename T, isize N>
-struct Bump_Array
-{
-  T     data[N];
-  isize count;
-
-  static constexpr isize capacity() { return N; }
-
-  // Access
-  T& operator[](isize i)
-  {
-    ASSERT(i < count, "Array bounds check index greater than count");
-    return data[i];
-  }
-  const T& operator[](isize i) const
-  {
-    ASSERT(i < count, "Array bounds check index greater than count");
-    return data[i];
-  }
-
-  // Iteration
-  T* begin() { return data; }
-  T* end()   { return data + count; }
-  const T* begin() const { return data; }
-  const T* end()   const { return data + count; }
-};
-
-template <typename T, isize N>
-void bump_array_add(Bump_Array<T, N> *array, T item)
-{
-  ASSERT(array->count < N, "Bump Array is full!");
-
-  array->data[array->count] = item;
-  array->count += 1;
-}
-
-template <typename T, isize N>
-void bump_array_pop(Bump_Array<T, N> *array)
-{
-  ZERO_SIZE(&array->data[array->count - 1], sizeof(T));
-  array->count -= 1;
-}
-
-#endif // __cplusplus C++ Garbage
-
 /////////////////
 // IMPLEMENT
 ////////////////
+
 // #define COMMON_IMPLEMENTATION
 #ifdef COMMON_IMPLEMENTATION
 // Returns size of file, or 0 if it can't open the file
@@ -488,9 +369,119 @@ String read_file_to_arena(Arena *arena, const char *name)
   return result;
 }
 
-b8 strings_equal(String a, String b)
+b32 char_is_whitespace(u8 c)
+{
+  return c == ' ' || c == '\n' || c == '\t' || c == '\r' || c == '\f' || c == '\v';
+}
+
+b32 char_is_digit(u8 c)
+{
+  return c == '0' || c == '1' || c == '2' || c == '3' || c == '4' || c == '5' || c == '6' || c == '7' || c == '8' || c == '9';
+}
+
+// TODO: Steal a better hash function
+// currently using https://en.wikipedia.org/wiki/Jenkins_hash_function
+u32 u32_hash_string(String string)
+{
+  u32 hash = 0;
+
+  for (isize i = 0; i < string.count; i++)
+  {
+    hash += string.data[i];
+    hash += (hash << 10);
+    hash ^= (hash >> 6);
+  }
+
+  hash += (hash << 3);
+  hash ^= (hash >> 11);
+  hash += (hash << 15);
+
+  return hash;
+}
+
+b32 strings_equal(String a, String b)
 {
   return a.count == b.count && memcmp(a.data, b.data, a.count) == 0;
+}
+
+b32 string_starts_with(String prefix, String to_check)
+{
+  b32 result = false;
+
+  // Check string has to be longer or equal to the prefix
+  if (to_check.count >= prefix.count)
+  {
+    String substring =
+    {
+      .data  = to_check.data,
+      .count = prefix.count,
+    };
+
+    result = strings_equal(prefix, substring);
+  }
+
+  return result;
+}
+
+String string_from_c_string(char *pointer)
+{
+  String result =
+  {
+    .data  = (u8 *)pointer,
+    .count = 0,
+  };
+
+  for (char *cursor = pointer; *cursor; cursor++)
+  {
+    result.count += 1;
+  }
+
+  return result;
+}
+
+String string_advance(String string, isize advance)
+{
+  String result = string;
+  if (advance < result.count)
+  {
+    result.data  += advance;
+    result.count -= advance;
+  }
+
+  return result;
+}
+
+String string_trim_whitespace(String string)
+{
+  String result = string;
+  // Eat leading whitespace
+  for (isize i = 0; i < result.count; i++)
+  {
+    u8 c = string.data[i];
+    if (char_is_whitespace(c))
+    {
+      result = string_advance(result, 1);
+    }
+    else
+    {
+      break;
+    }
+  }
+
+  for (isize i = result.count - 1; i >= 0; i--)
+  {
+    u8 c = result.data[i];
+    if (char_is_whitespace(c))
+    {
+      result.count -= 1;
+    }
+    else
+    {
+      break;
+    }
+  }
+
+  return result;
 }
 
 #ifndef LOG_TITLE
@@ -700,5 +691,136 @@ void scratch_end(Scratch *scratch)
 }
 
 #endif // COMMON_IMPLEMENTATION
+
+// C++ Garbage
+#ifdef __cplusplus
+
+// Bounds checked array with length info embedded
+template <typename T, isize N>
+struct Array
+{
+  T data[N];
+
+  static constexpr isize count() { return N; }
+
+  // Access
+  T& operator[](isize i)
+  {
+    ASSERT(i < N, "Array bounds check index greater than count");
+    return data[i];
+  }
+  const T& operator[](isize i) const
+  {
+    ASSERT(i < N, "Array bounds check index greater than count");
+    return data[i];
+  }
+
+  // Iteration
+  T* begin() { return data; }
+  T* end()   { return data + N; }
+  const T* begin() const { return data; }
+  const T* end()   const { return data + N; }
+};
+
+template <typename T>
+struct Slice
+{
+  T     *data;
+  isize count; // Don't modify it, obviously
+
+  // Access
+  T& operator[](isize i)
+  {
+    ASSERT(i < count, "Array bounds check index greater than count");
+    return data[i];
+  }
+  const T& operator[](isize i) const
+  {
+    ASSERT(i < count, "Array bounds check index greater than count");
+    return data[i];
+  }
+
+  // Iteration
+  T* begin() { return data; }
+  T* end()   { return data + count; }
+  const T* begin() const { return data; }
+  const T* end()   const { return data + count; }
+};
+
+// begin inclusive, end exclusive
+template <typename T, isize N>
+Slice<T> slice(Array<T, N> *array, isize begin, isize end)
+{
+  ASSERT(begin >= 0 && end <= array->count(), "Slice bounds must not lie outside backing array bounds");
+  ASSERT(begin < end, "Slice begin must come before end");
+
+  isize count = end - begin;
+
+  Slice<T> slice = {};
+  slice.data = &(*array)[begin];
+  slice.count = count;
+
+  return slice;
+}
+template <typename T>
+Slice<T> slice(Slice<T> _slice, isize begin, isize end)
+{
+  ASSERT(begin >= 0 && end <= _slice.count, "Slice bounds must not lie outside backing array bounds");
+  ASSERT(begin < end, "Slice begin must come before end");
+
+  isize count = end - begin;
+
+  Slice<T> slice = {};
+  slice.data = &_slice.data[begin];
+  slice.count = count;
+
+  return slice;
+}
+
+// Acts like a dynamic array, append, pop, etc but is backed by a statically sized array
+template <typename T, isize N>
+struct Bump_Array
+{
+  T     data[N];
+  isize count;
+
+  static constexpr isize capacity() { return N; }
+
+  // Access
+  T& operator[](isize i)
+  {
+    ASSERT(i < count, "Array bounds check index greater than count");
+    return data[i];
+  }
+  const T& operator[](isize i) const
+  {
+    ASSERT(i < count, "Array bounds check index greater than count");
+    return data[i];
+  }
+
+  // Iteration
+  T* begin() { return data; }
+  T* end()   { return data + count; }
+  const T* begin() const { return data; }
+  const T* end()   const { return data + count; }
+};
+
+template <typename T, isize N>
+void bump_array_add(Bump_Array<T, N> *array, T item)
+{
+  ASSERT(array->count < N, "Bump Array is full!");
+
+  array->data[array->count] = item;
+  array->count += 1;
+}
+
+template <typename T, isize N>
+void bump_array_pop(Bump_Array<T, N> *array)
+{
+  ZERO_SIZE(&array->data[array->count - 1], sizeof(T));
+  array->count -= 1;
+}
+
+#endif // __cplusplus C++ Garbage
 
 #endif // COMMON_H

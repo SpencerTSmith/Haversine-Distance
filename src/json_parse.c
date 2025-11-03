@@ -1,4 +1,5 @@
 #include "common.h"
+#include "benchmark/profile.h"
 
 #define JSON_Token_Type(X)         \
   X(JSON_TOKEN_EOF)                \
@@ -76,9 +77,9 @@ b8 parser_token_is_literal(JSON_Parser *parser, String literal_string)
 }
 
 static
-b8 is_numeric(u8 ch)
+b32 is_numeric(u8 ch)
 {
-  b8 result = false;
+  b32 result = false;
 
   switch (ch)
   {

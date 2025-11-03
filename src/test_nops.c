@@ -15,7 +15,6 @@ extern void nop1x3_all_bytes_asm(u64 count);
 extern void nop3x1_all_bytes_asm(u64 count);
 extern void nop9x1_all_bytes_asm(u64 count);
 extern void nop32x1_all_bytes_asm(u64 count);
-#pragma comment (lib, "loop_nops")
 
 static
 void nop1x3_all_bytes(Repetition_Tester *tester, Operation_Parameters *params)

@@ -45,3 +45,9 @@ test-branches: bin-folder
 	ar rcs bin/loop_branch.a bin/loop_branch.o
 	gcc ${CFLAGS} src/test_branches.c bin/loop_branch.a -o bin/reptest_branches.x
 	bin/reptest_branches.x $(TRY_FOR_MIN_TIME)
+
+test-code-alignment: bin-folder
+	nasm -f elf64 -o bin/align_nops.o src/align_nops.asm
+	ar rcs bin/align_nops.a bin/align_nops.o
+	gcc ${CFLAGS} src/test_code_align.c bin/align_nops.a -o bin/reptest_code_alignment.x
+	bin/reptest_code_alignment.x $(TRY_FOR_MIN_TIME)
