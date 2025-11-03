@@ -1,47 +1,51 @@
 #include "common.h"
 
-typedef struct Argument Argument;
-struct Argument
+typedef struct Arg_Option Arg_Option;
+struct Arg_Option
 {
-  u32      hash;
-  Argument *hash_next;
-  String   name;
-  String   *values;
-  isize    value_count;
+  Arg_Option *hash_next;
+  u32        hash;
+  String     name;
+  String     *values;
+  isize      value_count;
 };
 
 typedef struct Argument_Table Argument_Table;
 struct Argument_Table
 {
-  String   *raw_strings;
-  isize    raw_strings_count;
-  Argument *table_array;
-  isize    table_array_count;
+  String *raw_strings;
+  isize  raw_strings_count;
+
+  Arg_Option *option_table;
+  isize      option_table_count;
+
+  isize *positional_indices; // Array of indices into raw string array
+  isize positional_count;
 };
 
 static
-Argument *get_argument_bucket(Argument_Table *table, String name)
+Arg_Option *get_arg_option_bucket(Argument_Table *table, String name)
 {
-  Argument *bucket = NULL;
+  Arg_Option *bucket = NULL;
 
-  if (table->table_array_count)
+  if (table->option_table_count)
   {
-    u32 hash = u32_hash_string(name);
-    isize index = hash % table->table_array_count;
+    u32 hash = string_hash_u32(name);
 
-    bucket = table->table_array + index;
-    printf("%.*s (%lu) = %u = %td\n", String_Format(name), name.count, hash, index);
+    isize index = hash % table->option_table_count;
+
+    bucket = table->option_table + index;
   }
 
   return bucket;
 }
 
 static
-Argument *get_argument_from_bucket(Argument *bucket, String name)
+Arg_Option *get_arg_option_from_bucket(Arg_Option *bucket, String name)
 {
-  Argument *result = NULL;
+  Arg_Option *result = NULL;
 
-  for (Argument *cursor = bucket; cursor; cursor = cursor->hash_next)
+  for (Arg_Option *cursor = bucket; cursor; cursor = cursor->hash_next)
   {
     if (strings_equal(cursor->name, name))
     {
@@ -54,18 +58,18 @@ Argument *get_argument_from_bucket(Argument *bucket, String name)
 }
 
 static
-Argument *find_argument(Argument_Table *table, String name)
+Arg_Option *find_arg_option(Argument_Table *table, String name)
 {
-  return get_argument_from_bucket(get_argument_bucket(table, name), name);
+  return get_arg_option_from_bucket(get_arg_option_bucket(table, name), name);
 }
 
 static
-Argument *insert_argument_into_table(Arena *arena, Argument_Table *table, String name)
+Arg_Option *insert_arg_option(Arena *arena, Argument_Table *table, String name)
 {
-  Argument *result = NULL;
+  Arg_Option *result = NULL;
 
-  Argument *bucket = get_argument_bucket(table, name);
-  Argument *exists = get_argument_from_bucket(bucket, name);
+  Arg_Option *bucket = get_arg_option_bucket(table, name);
+  Arg_Option *exists = get_arg_option_from_bucket(bucket, name);
 
   // We already inserted it
   if (exists)
@@ -75,20 +79,53 @@ Argument *insert_argument_into_table(Arena *arena, Argument_Table *table, String
   else
   {
     // Collision
-    if (bucket->hash)
+    if (bucket->hash) // HACK: not safe... hash can be 0
     {
-      result = arena_new(arena, Argument);
+      result = arena_new(arena, Arg_Option);
+      // Insert at head
+      result->hash_next = bucket->hash_next;
       bucket->hash_next = result;
-      LOG_INFO("Collision!");
     }
     else
     {
       result = bucket;
-      LOG_INFO("No Collision!");
     }
 
-    result->hash = u32_hash_string(name);
+    result->hash = string_hash_u32(name);
     result->name = name;
+  }
+
+  return result;
+}
+
+// Start inclusive, end exclusive
+String string_substring(String string, isize start, isize end)
+{
+  String result = {0};
+
+  if (start >= 0 && end <= string.count && start < end)
+  {
+    result.data  = string.data + start;
+    result.count = end - start;
+  }
+
+  return result;
+}
+
+isize string_find_substring(String to_check, isize start, String substring)
+{
+  isize result = -1;
+  isize comparison_count = to_check.count - substring.count + 1;
+
+  for (isize i = start; i < comparison_count; i++)
+  {
+    String to_compare = string_substring(to_check, i, i + substring.count);
+
+    if (strings_equal(to_compare, substring))
+    {
+      result = i;
+      break;
+    }
   }
 
   return result;
@@ -101,7 +138,7 @@ Argument_Table parse_arguments(Arena *arena, i32 count, char **arguments)
 
   result.raw_strings_count = count;
   result.raw_strings = arena_calloc(arena, result.raw_strings_count, String);
-  for (i32 i = 0; i < count; i++)
+  for (i32 i = 1; i < count; i++)
   {
     char *c_string = arguments[i];
 
@@ -110,53 +147,47 @@ Argument_Table parse_arguments(Arena *arena, i32 count, char **arguments)
     result.raw_strings[i] = string;
   }
 
-  result.table_array_count = 64;
-  result.table_array = arena_calloc(arena, result.table_array_count, Argument);
+  result.option_table_count = 64;
+  result.option_table = arena_calloc(arena, result.option_table_count, Arg_Option);
 
-  b32 parsing_values = false;
-  Argument *current_argument = NULL;
+  Arg_Option *current_argument = NULL;
   for (isize i = 0; i < result.raw_strings_count; i++)
   {
-    Argument argument = {0};
+    String string = result.raw_strings[i];
+    b32 is_option = true;
 
-    String name = result.raw_strings[i];
-
-    // Flag!
-    if (string_starts_with(String("--"), name))
+    // Option
+    if (string_starts_with(String("--"), string))
     {
-      parsing_values = false;
-      name = string_advance(name, 2);
+      string = string_advance(string, 2);
     }
-    else if (string_starts_with(String("-"), name))
+    else if (string_starts_with(String("-"), string))
     {
-      parsing_values = false;
-      name = string_advance(name, 1);
+      string = string_advance(string, 1);
     }
-
-    // Values
+    // Positional
     else
     {
-      parsing_values = true;
+      is_option = false;
     }
 
-    if (parsing_values)
+    if (is_option)
     {
+      isize values_delimeter_index = string_find_substring(string, 0, String("="));
+
+      Arg_Option *argument = insert_arg_option(arena, &result, string);
     }
+
+    // Its a positional
     else
     {
-      Argument *key = insert_argument_into_table(arena, &result, name);
     }
-  }
-
-  Argument *test = find_argument(&result, String("bloop"));
-  if (test)
-  {
-    printf("%.*s\n", String_Format(test->name));
-  }
-  else
-  {
-    printf("No!\n");
   }
 
   return result;
+}
+
+b32 argument_table_has_flag(Argument_Table *table, String flag)
+{
+  return find_arg_option(table, flag) != NULL;
 }

@@ -130,7 +130,7 @@ struct String
 b32 char_is_whitespace(u8 c);
 b32 char_is_digit(u8 c);
 
-u32 u32_hash_string(String string);
+u32 string_hash_u32(String string);
 b32 strings_equal(String a, String b);
 b32 string_starts_with(String prefix, String to_check);
 
@@ -381,7 +381,7 @@ b32 char_is_digit(u8 c)
 
 // TODO: Steal a better hash function
 // currently using https://en.wikipedia.org/wiki/Jenkins_hash_function
-u32 u32_hash_string(String string)
+u32 string_hash_u32(String string)
 {
   u32 hash = 0;
 
