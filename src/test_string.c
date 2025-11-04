@@ -25,6 +25,7 @@ int main(int argc, char **argv)
     String string = String("Skipper");
     PRINT_EVAL(label, strings_equal(string_skip(string, 1), String("kipper")), true);
     PRINT_EVAL(label, strings_equal(string_skip(string, 2), String("ipper")),  true);
+    PRINT_EVAL(label, strings_equal(string_skip(string, string.count), String("")),  true);
     PRINT_EVAL(label, strings_equal(string_skip(string, 8), String("")),       true);
   }
 
