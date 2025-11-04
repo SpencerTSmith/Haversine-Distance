@@ -30,4 +30,6 @@ int main(int argc, char **argv)
   {
     printf("Positional %td: %.*s\n", i, String_Format(arguments.positionals[i]));
   }
+
+  ASSERT(false, "What happens?");
 }

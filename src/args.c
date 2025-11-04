@@ -180,25 +180,29 @@ Argument_Table parse_arguments(Arena *arena, i32 count, char **arguments)
       // Add any values
       String_Array values = {0};
 
-      isize last_comma_index = -1;
-      for (isize sub_index = 0; sub_index < values_substring.count; sub_index++)
+      isize last_comma_idx = -1;
+      for (isize char_idx = 0; char_idx < values_substring.count; char_idx++)
       {
-        String value_to_add = {0};
+        u8 c = values_substring.data[char_idx];
 
-        u8 c = values_substring.data[sub_index];
+        // Start is always the last comma + 1, and since we start that as -1 the first value to extract starts at 0 index
+        isize start = last_comma_idx + 1;;
+        isize end   = 0;
         if (c == ',')
         {
-          value_to_add = string_substring(values_substring, last_comma_index + 1, sub_index);
-          last_comma_index = sub_index;
+          end   = char_idx;
+          last_comma_idx = char_idx;
         }
-        else if (sub_index == values_substring.count - 1)
+        else if (char_idx == values_substring.count - 1)
         {
-          value_to_add = string_substring(values_substring, last_comma_index + 1, values_substring.count);
+          end = values_substring.count;
         }
 
-        if (value_to_add.count)
+        // If we actually do have a value to extract
+        if (end)
         {
-          array_add(arena, values, value_to_add);
+          array_add(arena, values,
+                    string_substring(values_substring, start, end));
         }
       }
 

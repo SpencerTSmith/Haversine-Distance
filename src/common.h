@@ -91,6 +91,8 @@ typedef ptrdiff_t isize;
 #define NSEC_PER_SEC BILLION(1)
 #define MSEC_PER_SEC THOUSAND(1)
 
+#define STATEMENT(s) do { s } while (0)
+
 #define DEFER_SCOPE(begin, end) \
   for (isize __once__ = (begin, 0); !__once__; __once__++, (end))
 
@@ -127,9 +129,6 @@ struct type##_Array                       \
   isize count;                            \
 }
 
-// Safe access... don't really use this often
-#define array_at(array, i) (assert(i < array.count), array.data[i])
-
 // No null terminated strings, please
 DEFINE_ARRAY(u8);
 typedef u8_Array String;
@@ -157,6 +156,7 @@ String string_from_c_string(char *pointer);
 ////////////////
 
 #define LOG_ENUM(X) \
+  X(LOG_ASSERT)     \
   X(LOG_FATAL)      \
   X(LOG_ERROR)      \
   X(LOG_DEBUG)      \
@@ -169,13 +169,12 @@ typedef enum Log_Level
 // Intended for internal use... probably want to use the macros
 void log_message(Log_Level level, const char *file, usize line, const char *message, ...);
 
-#define LOG_FATAL(message, exit_code, ...)                              \
-  do                                                                    \
-  {                                                                     \
-    log_message(LOG_FATAL, __FILE__, __LINE__, message, ##__VA_ARGS__); \
-    exit(exit_code);                                                    \
-  }                                                                     \
-  while (0)
+#define LOG_FATAL(message, exit_code, ...)                                \
+  STATEMENT                                                               \
+  (                                                                       \
+      log_message(LOG_FATAL, __FILE__, __LINE__, message, ##__VA_ARGS__); \
+      exit(exit_code);                                                    \
+  )
 #define LOG_ERROR(message, ...) log_message(LOG_ERROR, __FILE__, __LINE__, message, ##__VA_ARGS__)
 
 #ifdef DEBUG
@@ -189,7 +188,16 @@ void log_message(Log_Level level, const char *file, usize line, const char *mess
 // Just a little wrapper, don't have to && your message, and complains if you don't
 // give it a message, which is good practice and probably ought to force myself to do it
 #ifdef DEBUG
-  #define ASSERT(expr, message) assert(expr && message)
+  #define ASSERT(expr, message, ...)                                 \
+  STATEMENT                                                          \
+  (                                                                  \
+    if (!(expr))                                                     \
+    {                                                                \
+      log_message(LOG_ASSERT, __FILE__, __LINE__,                    \
+                  "Assertion: (" #expr ") :: " message, ##__VA_ARGS__); \
+      (*(volatile i32 *) 0 = 0);                                     \
+    }                                                                \
+  )
 #else
   #define ASSERT(expr, message) VOID_PROC
 #endif // DEBUG
@@ -302,6 +310,8 @@ String read_file_to_arena(Arena *arena, const char *name);
 #define arena_array(a, _count, T) (T##_Array) {.data = arena_calloc(a, _count, T), .count = _count}
 
 // NOTE(ss): EVIL! Macro VOODOO... too much? We will see...
+// Only works when building contiguously, IE use a linked list if can't guarantee that
+// May add reloaction later... but maybe not
 #define array_add(a, array, new)                                                           \
     !array.data ? (array.data = arena_alloc(a, sizeof(*array.data), alignof(*array.data)), array.data[array.count++] = new) : \
     arena_alloc(a, sizeof(*array.data), alignof(*array.data)) == array.data + array.count ? \
