@@ -9,7 +9,7 @@ struct Arg_Option
   String_Array values;
 };
 
-typedef struct Argument_Table Argument_Table;
+typedef struct Argument_Table Args;
 struct Argument_Table
 {
   String_Array raw_strings;
@@ -22,17 +22,17 @@ struct Argument_Table
 };
 
 static
-Arg_Option *get_arg_option_bucket(Argument_Table *table, String name)
+Arg_Option *get_arg_option_bucket(Args *args, String name)
 {
   Arg_Option *bucket = NULL;
 
-  if (table->option_table_count)
+  if (args->option_table_count)
   {
     u32 hash = string_hash_u32(name);
 
-    isize index = hash % table->option_table_count;
+    isize index = hash % args->option_table_count;
 
-    bucket = table->option_table + index;
+    bucket = args->option_table + index;
   }
 
   return bucket;
@@ -56,17 +56,17 @@ Arg_Option *get_arg_option_from_bucket(Arg_Option *bucket, String name)
 }
 
 static
-Arg_Option *find_arg_option(Argument_Table *table, String name)
+Arg_Option *find_arg_option(Args *args, String name)
 {
-  return get_arg_option_from_bucket(get_arg_option_bucket(table, name), name);
+  return get_arg_option_from_bucket(get_arg_option_bucket(args, name), name);
 }
 
 static
-Arg_Option *insert_arg_option(Arena *arena, Argument_Table *table, String name, String_Array values)
+Arg_Option *insert_arg_option(Arena *arena, Args *args, String name, String_Array values)
 {
   Arg_Option *result = NULL;
 
-  Arg_Option *bucket = get_arg_option_bucket(table, name);
+  Arg_Option *bucket = get_arg_option_bucket(args, name);
   Arg_Option *exists = get_arg_option_from_bucket(bucket, name);
 
   // We already inserted it
@@ -97,43 +97,10 @@ Arg_Option *insert_arg_option(Arena *arena, Argument_Table *table, String name, 
   return result;
 }
 
-// Start inclusive, end exclusive
-String string_substring(String string, isize start, isize end)
-{
-  String result = {0};
-
-  if (start >= 0 && end <= string.count && start < end)
-  {
-    result.data  = string.data + start;
-    result.count = end - start;
-  }
-
-  return result;
-}
-
-isize string_find_substring(String to_check, isize start, String substring)
-{
-  isize result = -1;
-  isize comparison_count = to_check.count - substring.count + 1;
-
-  for (isize i = start; i < comparison_count; i++)
-  {
-    String to_compare = string_substring(to_check, i, i + substring.count);
-
-    if (strings_equal(to_compare, substring))
-    {
-      result = i;
-      break;
-    }
-  }
-
-  return result;
-}
-
 static
-Argument_Table parse_arguments(Arena *arena, i32 count, char **arguments)
+Args parse_args(Arena *arena, i32 count, char **arguments)
 {
-  Argument_Table result = {0};
+  Args result = {0};
 
   result.raw_strings = arena_array(arena, count, String);
   for (i32 i = 1; i < count; i++)
@@ -220,7 +187,14 @@ Argument_Table parse_arguments(Arena *arena, i32 count, char **arguments)
   return result;
 }
 
-b32 argument_table_has_flag(Argument_Table *table, String flag)
+static
+b32 args_has_flag(Args *table, String flag)
 {
   return find_arg_option(table, flag) != NULL;
+}
+
+static
+String_Array args_get_option_values(Args *table, String option)
+{
+  return find_arg_option(table, option)->values;
 }

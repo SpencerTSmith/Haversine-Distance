@@ -28,7 +28,6 @@ extern "C"
 #include <stdio.h>
 #include <stddef.h>
 #include <stdalign.h>
-#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
@@ -60,8 +59,11 @@ typedef float  f32;
 typedef size_t    usize;
 typedef ptrdiff_t isize;
 
-#define CONCAT(a, b) a##b
-#define MACRO_CONCAT(a, b) CONCAT(a, b)
+#define _CONCAT(a, b) a##b
+#define CONCAT(a, b) _CONCAT(a, b)
+
+#define _STRINGIFY(a) #a
+#define STRINGIFY(a) _STRINGIFY(a)
 
 #define CLAMP(value, min, max) (((value) < (min)) ? (min) : ((value) > (max)) ? (max) : (value))
 #define MAX(first, second) ((first) > (second) ? (first) : (second))
@@ -108,7 +110,7 @@ typedef ptrdiff_t isize;
 #define ENUM_TABLE(Enum_Name)                  \
   typedef enum Enum_Name                       \
   { Enum_Name(ENUM_MEMBER) } Enum_Name;        \
-  static const char *Enum_Name ## _strings[] = \
+  static const char *CONCAT(Enum_Name, _strings)[] = \
   { Enum_Name(ENUM_STRING) };
 
 // Only useful if you know exactly how big the file is ahead of time, otherwise probably put on an arena if don't know...
@@ -148,6 +150,9 @@ b32 string_starts_with(String prefix, String to_check);
 
 String string_advance(String string, isize advance);
 String string_trim_whitespace(String string);
+
+String string_substring(String string, isize start, isize end);
+isize string_find_substring(String to_check, isize start, String substring);
 
 String string_from_c_string(char *pointer);
 
@@ -194,7 +199,7 @@ void log_message(Log_Level level, const char *file, usize line, const char *mess
     if (!(expr))                                                     \
     {                                                                \
       log_message(LOG_ASSERT, __FILE__, __LINE__,                    \
-                  "Assertion: (" #expr ") :: " message, ##__VA_ARGS__); \
+                  "Assertion: (" STRINGIFY(expr) ") :: " message, ##__VA_ARGS__); \
       (*(volatile i32 *) 0 = 0);                                     \
     }                                                                \
   )
@@ -276,7 +281,6 @@ struct Arena_Args
   isize  make_call_line;
 };
 
-#define EXT_ARENA_ALLOCATION 0xffffffff
 #define ARENA_DEFAULT_RESERVE_SIZE MB(256)
 #define ARENA_DEFAULT_COMMIT_SIZE  KB(64)
 
@@ -312,11 +316,12 @@ String read_file_to_arena(Arena *arena, const char *name);
 // NOTE(ss): EVIL! Macro VOODOO... too much? We will see...
 // Only works when building contiguously, IE use a linked list if can't guarantee that
 // May add reloaction later... but maybe not
-#define array_add(a, array, new)                                                           \
-    !array.data ? (array.data = arena_alloc(a, sizeof(*array.data), alignof(*array.data)), array.data[array.count++] = new) : \
+// Probably also slow than needs to be as we need to go through alloc path for individual elements
+#define array_add(a, array, new)                                                            \
+    !array.data ? (array.data = arena_alloc(a, sizeof(*array.data), alignof(*array.data)), array.data[array.count++] = new, &array.data[array.count - 1]) : \
     arena_alloc(a, sizeof(*array.data), alignof(*array.data)) == array.data + array.count ? \
-    array.data[array.count++] = new                                                    :   \
-    (LOG_ERROR("Tried to add to array noncontiguously!"), arena_pop(a, sizeof(*array.data)), new)
+    (array.data[array.count++] = new, &array.data[array.count - 1])                       :   \
+    (LOG_ERROR("Tried to add to array in arena noncontiguously!"), arena_pop(a, sizeof(*array.data)), NULL)
 
 
 // Useful for structs, much like new in other languages
@@ -517,6 +522,39 @@ String string_trim_whitespace(String string)
   return result;
 }
 
+// Start inclusive, end exclusive
+String string_substring(String string, isize start, isize end)
+{
+  String result = {0};
+
+  if (start >= 0 && end <= string.count && start < end)
+  {
+    result.data  = string.data + start;
+    result.count = end - start;
+  }
+
+  return result;
+}
+
+isize string_find_substring(String to_check, isize start, String substring)
+{
+  isize result = -1;
+  isize comparison_count = to_check.count - substring.count + 1;
+
+  for (isize i = start; i < comparison_count; i++)
+  {
+    String to_compare = string_substring(to_check, i, i + substring.count);
+
+    if (strings_equal(to_compare, substring))
+    {
+      result = i;
+      break;
+    }
+  }
+
+  return result;
+}
+
 #ifndef LOG_TITLE
 #define LOG_TITLE "COMMON"
 #endif
@@ -621,12 +659,10 @@ Arena __arena_make(Arena_Args *args)
   Arena arena = {0};
 
   arena.base = (u8 *)os_allocate(res, OS_ALLOCATION_NONE);
-  if (arena.base == NULL)
-  {
-    LOG_FATAL("Failed to allocate arena memory (%.*s:%ld)", EXT_ARENA_ALLOCATION,
-              args->make_call_file, args->make_call_line);
-    return arena;
-  }
+
+  // Maybe we do something more gracefully, as this won't be compiled in when DEBUG not defined
+  ASSERT(arena.base, "Failed to allocate arena memory (%.*s:%ld)",
+         args->make_call_file, args->make_call_line);
 
   os_commit(arena.base, com);
 
@@ -656,7 +692,7 @@ void arena_print_stats(Arena *arena)
 }
 
 void *arena_alloc(Arena *arena, isize size, isize alignment) {
-  ASSERT(arena->base != NULL, "Arena memory is null");
+  ASSERT(arena->base, "Arena memory is null");
 
   isize aligned_offset = ALIGN_ROUND_UP(arena->next_offset, alignment);
   void *ptr = arena->base + aligned_offset;
@@ -669,17 +705,13 @@ void *arena_alloc(Arena *arena, isize size, isize alignment) {
   {
     isize commit_diff = desired_commit_size - arena->commit_size;
     isize commit_size = ALIGN_ROUND_UP(commit_diff, KB(4)); // Commit only in pages
-    if (commit_size < arena->reserve_size)
-    {
-      os_commit(arena->base + arena->commit_size, commit_size);
-      arena->commit_size = desired_commit_size;
-    }
-    else
-    {
-      LOG_FATAL("Not enough reserved memory in arena, DESIRED: %ld bytes RESERVED: %ld bytes",
-                EXT_ARENA_ALLOCATION, desired_commit_size, arena->reserve_size);
-      ptr = NULL;
-    }
+
+    // Probably do separate chaining
+    ASSERT(commit_size < arena->reserve_size, "Not enough reserved memory in arena, DESIRED: %ld bytes RESERVED: %ld bytes",
+           desired_commit_size, arena->reserve_size);
+
+    os_commit(arena->base + arena->commit_size, commit_size);
+    arena->commit_size = desired_commit_size;
   }
 
   // If we either had the needed memory already, or could commit more
