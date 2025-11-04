@@ -55,3 +55,7 @@ test-code-alignment: bin-folder
 test-argparse: bin-folder
 	gcc ${CFLAGS} src/test_arguments.c -o bin/test_arguments.x
 	bin/test_arguments.x positional --verbose -v --foo --bar --baz=foo,bar,boo positional2
+
+test-string: bin-folder
+	gcc ${CFLAGS} src/test_string.c -o bin/test_string.x
+	bin/test_string.x

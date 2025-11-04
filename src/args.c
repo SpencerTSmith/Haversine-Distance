@@ -121,13 +121,13 @@ Args parse_args(Arena *arena, i32 count, char **arguments)
     b32 is_option = true;
 
     // Option
-    if (string_starts_with(String("--"), string))
+    if (string_starts_with(string, String("--")))
     {
-      string = string_advance(string, 2);
+      string = string_skip(string, 2);
     }
-    else if (string_starts_with(String("-"), string))
+    else if (string_starts_with(string, String("-")))
     {
-      string = string_advance(string, 1);
+      string = string_skip(string, 1);
     }
     // Positional
     else
@@ -142,7 +142,7 @@ Args parse_args(Arena *arena, i32 count, char **arguments)
       String name_substring = string_substring(string, 0, values_delimeter_index);
 
       String values_substring = string_substring(string, values_delimeter_index, string.count);
-      values_substring = string_advance(values_substring, 1); // Skip the delimiter
+      values_substring = string_skip(values_substring, 1); // Skip the delimiter
 
       // Add any values
       String_Array values = {0};

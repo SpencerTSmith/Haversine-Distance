@@ -1,30 +1,37 @@
 #define COMMON_IMPLEMENTATION
 #include "common.h"
-#include "args.c"
 
 int main(int argc, char **argv)
 {
-  Arena arena = arena_make();
-  Args arguments = parse_args(&arena, argc, argv);
-
-  for (isize i = 0; i < arguments.raw_strings.count; i++)
   {
-    printf("Raw %td: %.*s\n", i, String_Format(arguments.raw_strings.data[i]));
+    const char *label = "strings_equal";
+    String string = String("Foo");
+    PRINT_EVAL(label, strings_equal(string, String("Foo")),   true);
+    PRINT_EVAL(label, strings_equal(string, String("Bar")),   false);
+    PRINT_EVAL(label, strings_equal(string, String("Foo\n")), false);
+    PRINT_EVAL(label, strings_equal(string, String(" Foo ")), false);
   }
 
-  if (args_has_flag(&arguments, String("foo")))
   {
-    printf("Has foo flag!\n");
+    const char *label = "string_starts_with";
+    String string = String("Arkham");
+    PRINT_EVAL(label, string_starts_with(string, String("A")),   true);
+    PRINT_EVAL(label, string_starts_with(string, String("Ark")), true);
+    PRINT_EVAL(label, string_starts_with(string, String("ham")), false);
   }
 
-  String_Array baz_vals = args_get_option_values(&arguments, String("baz"));
-  for (isize i = 0; i < baz_vals.count; i++)
   {
-    printf("Value: %.*s\n", String_Format(baz_vals.data[i]));
+    const char *label = "string_skip";
+    String string = String("Skipper");
+    PRINT_EVAL(label, strings_equal(string_skip(string, 1), String("kipper")), true);
+    PRINT_EVAL(label, strings_equal(string_skip(string, 2), String("ipper")),  true);
+    PRINT_EVAL(label, strings_equal(string_skip(string, 8), String("")),       true);
   }
 
-  for (isize i = 0; i < arguments.positionals_count; i++)
   {
-    printf("Positional %td: %.*s\n", i, String_Format(arguments.positionals[i]));
+    const char *label = "string_trim_white_space";
+    PRINT_EVAL(label, strings_equal(string_trim_whitespace(String("  Foo")), String("Foo")), true);
+    PRINT_EVAL(label, strings_equal(string_trim_whitespace(String("Foo  ")), String("Foo")), true);
+    PRINT_EVAL(label, strings_equal(string_trim_whitespace(String("Foo\n")), String("Foo")), true);
   }
 }

@@ -88,7 +88,6 @@ typedef ptrdiff_t isize;
 #define ZERO_STRUCT(ptr)     (MEM_SET((ptr), sizeof(*(ptr)), 0))
 #define ZERO_SIZE(ptr, size) (MEM_SET((ptr), (size), 0))
 
-
 #define VOID_PROC ((void)0)
 
 #define KB(n) (1024 * (n))
@@ -122,6 +121,8 @@ typedef ptrdiff_t isize;
   static const char *CONCAT(Enum_Name, _strings)[] = \
   { Enum_Name(ENUM_STRING) };
 
+#define PRINT_EVAL(label, expr, expected) printf("%s:\n  Expression: %s\n    --> %s\n", (label), #expr, (expr) == expected ? "Success :)" : "Fail :(")
+
 // Only useful if you know exactly how big the file is ahead of time, otherwise probably put on an arena if don't know...
 // or use file_size()
 usize read_file_to_memory(const char *name, u8 *buffer, usize buffer_size);
@@ -154,9 +155,10 @@ b32 char_is_digit(u8 c);
 
 u32 string_hash_u32(String string);
 b32 strings_equal(String a, String b);
-b32 string_starts_with(String prefix, String to_check);
+b32 string_starts_with(String string, String prefix);
 
-String string_advance(String string, isize advance);
+String string_skip(String string, isize count);
+String string_chop(String string, isize count);
 String string_trim_whitespace(String string);
 
 String string_substring(String string, isize start, isize end);
@@ -451,16 +453,16 @@ b32 strings_equal(String a, String b)
   return a.count == b.count && MEM_MATCH(a.data, b.data, a.count);
 }
 
-b32 string_starts_with(String prefix, String to_check)
+b32 string_starts_with(String string, String prefix)
 {
   b32 result = false;
 
   // Check string has to be longer or equal to the prefix
-  if (to_check.count >= prefix.count)
+  if (string.count >= prefix.count)
   {
     String substring =
     {
-      .data  = to_check.data,
+      .data  = string.data,
       .count = prefix.count,
     };
 
@@ -486,13 +488,28 @@ String string_from_c_string(char *pointer)
   return result;
 }
 
-String string_advance(String string, isize advance)
+String string_skip(String string, isize count)
 {
-  String result = string;
-  if (advance < result.count)
+  String result = {0};
+
+  if (count < string.count)
   {
-    result.data  += advance;
-    result.count -= advance;
+    result = string;
+    result.data  += count;
+    result.count -= count;
+  }
+
+  return result;
+}
+
+String string_chop(String string, isize count)
+{
+  String result = {0};
+
+  if (count < string.count)
+  {
+    result = string;
+    result.count -= count;
   }
 
   return result;
@@ -501,13 +518,14 @@ String string_advance(String string, isize advance)
 String string_trim_whitespace(String string)
 {
   String result = string;
+
   // Eat leading whitespace
   for (isize i = 0; i < result.count; i++)
   {
     u8 c = string.data[i];
     if (char_is_whitespace(c))
     {
-      result = string_advance(result, 1);
+      result = string_skip(result, 1);
     }
     else
     {
