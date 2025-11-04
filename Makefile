@@ -51,3 +51,7 @@ test-code-alignment: bin-folder
 	ar rcs bin/align_nops.a bin/align_nops.o
 	gcc ${CFLAGS} src/test_code_align.c bin/align_nops.a -o bin/reptest_code_alignment.x
 	bin/reptest_code_alignment.x $(TRY_FOR_MIN_TIME)
+
+test-argparse: bin-folder
+	gcc ${CFLAGS} src/test_arguments.c -o bin/test_arguments.x
+	bin/test_arguments.x positional --verbose -v --foo --bar --baz=foo,bar positional2

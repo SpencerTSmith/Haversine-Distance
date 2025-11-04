@@ -115,13 +115,20 @@ usize read_file_to_memory(const char *name, u8 *buffer, usize buffer_size);
 
 usize file_size(const char *name);
 
-// No Null terminated strings!
-typedef struct String String;
-struct String
-{
-  u8    *data;
-  isize count;
-};
+/////////////////
+// ARRAY MACRO
+////////////////
+
+#define DEFINE_ARRAY(type)                \
+typedef struct type##_Array type##_Array; \
+struct type##_Array                       \
+{                                         \
+  type *data;                             \
+  isize count;                            \
+}
+
+DEFINE_ARRAY(u8);
+typedef u8_Array String;
 
 #define String(s) (String){(u8 *)s, STATIC_ARRAY_COUNT(s) - 1}
 
@@ -285,6 +292,8 @@ String read_file_to_arena(Arena *arena, const char *name);
 
 // specify the arena, the number of elements, and the type... c(ounted)alloc
 #define arena_calloc(a, count, T) (T *)arena_alloc((a), sizeof(T) * (count), alignof(T))
+
+#define arena_array(a, _count, T) (T##_Array) {.data = arena_calloc(a, _count, T), .count = _count}
 
 // Useful for structs, much like new in other languages
 #define arena_new(a, T) arena_calloc(a, 1, T)

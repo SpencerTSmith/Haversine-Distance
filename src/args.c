@@ -1,5 +1,7 @@
 #include "common.h"
 
+DEFINE_ARRAY(String);
+
 typedef struct Arg_Option Arg_Option;
 struct Arg_Option
 {
@@ -7,7 +9,7 @@ struct Arg_Option
   u32        hash;
   String     name;
   String     *values;
-  isize      value_count;
+  isize      values_count;
 };
 
 typedef struct Argument_Table Argument_Table;
@@ -19,8 +21,8 @@ struct Argument_Table
   Arg_Option *option_table;
   isize      option_table_count;
 
-  isize *positional_indices; // Array of indices into raw string array
-  isize positional_count;
+  isize  positionals_count;
+  String positionals[32];
 };
 
 static
@@ -64,7 +66,7 @@ Arg_Option *find_arg_option(Argument_Table *table, String name)
 }
 
 static
-Arg_Option *insert_arg_option(Arena *arena, Argument_Table *table, String name)
+Arg_Option *insert_arg_option(Arena *arena, Argument_Table *table, String name, String *values, isize values_count)
 {
   Arg_Option *result = NULL;
 
@@ -93,6 +95,8 @@ Arg_Option *insert_arg_option(Arena *arena, Argument_Table *table, String name)
 
     result->hash = string_hash_u32(name);
     result->name = name;
+    result->values = values;
+    result->values_count = values_count;
   }
 
   return result;
@@ -150,7 +154,6 @@ Argument_Table parse_arguments(Arena *arena, i32 count, char **arguments)
   result.option_table_count = 64;
   result.option_table = arena_calloc(arena, result.option_table_count, Arg_Option);
 
-  Arg_Option *current_argument = NULL;
   for (isize i = 0; i < result.raw_strings_count; i++)
   {
     String string = result.raw_strings[i];
@@ -175,12 +178,57 @@ Argument_Table parse_arguments(Arena *arena, i32 count, char **arguments)
     {
       isize values_delimeter_index = string_find_substring(string, 0, String("="));
 
-      Arg_Option *argument = insert_arg_option(arena, &result, string);
+      String name_substring = string_substring(string, 0, values_delimeter_index);
+
+      String values_substring = string_substring(string, values_delimeter_index, string.count);
+      values_substring = string_advance(values_substring, 1); // Skip the delimiter
+
+      // Add any values
+      String *values = NULL;
+      isize  values_count = 0;
+
+      isize last_comma_index = -1;
+      for (isize sub_index = 0; sub_index < values_substring.count; sub_index++)
+      {
+        String value_to_add = {0};
+
+        u8 c = values_substring.data[sub_index];
+        if (c == ',')
+        {
+          value_to_add = string_substring(values_substring, last_comma_index + 1, sub_index);
+          last_comma_index = sub_index;
+        }
+        else if (sub_index == values_substring.count - 1)
+        {
+          value_to_add = string_substring(values_substring, last_comma_index + 1, values_substring.count);
+        }
+
+        if (value_to_add.count)
+        {
+          if (!values)
+          {
+            values = arena_new(arena, String);
+            *values = value_to_add;
+          }
+          else
+          {
+            // Better API for adding onto array in arena...
+            String *next = arena_new(arena, String);
+            *next = value_to_add;
+          }
+
+          values_count += 1;
+        }
+      }
+
+      Arg_Option *arg = insert_arg_option(arena, &result, name_substring, values, values_count);
     }
 
     // Its a positional
     else
     {
+      result.positionals[result.positionals_count] = string;
+      result.positionals_count += 1;
     }
   }
 

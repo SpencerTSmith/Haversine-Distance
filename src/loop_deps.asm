@@ -5,6 +5,7 @@ global dec_all_bytes_asm
 
 section .text
 
+
 ; For 64 bit linux calling convention, in which buffer count is 1st arg in RDI, and 2nd arg is data pointer in RSI
 
 mov_all_bytes_asm:
