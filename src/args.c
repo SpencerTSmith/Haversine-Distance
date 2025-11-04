@@ -1,22 +1,18 @@
 #include "common.h"
 
-DEFINE_ARRAY(String);
-
 typedef struct Arg_Option Arg_Option;
 struct Arg_Option
 {
-  Arg_Option *hash_next;
-  u32        hash;
-  String     name;
-  String     *values;
-  isize      values_count;
+  Arg_Option   *hash_next;
+  u32          hash;
+  String       name;
+  String_Array values;
 };
 
 typedef struct Argument_Table Argument_Table;
 struct Argument_Table
 {
-  String *raw_strings;
-  isize  raw_strings_count;
+  String_Array raw_strings;
 
   Arg_Option *option_table;
   isize      option_table_count;
@@ -66,7 +62,7 @@ Arg_Option *find_arg_option(Argument_Table *table, String name)
 }
 
 static
-Arg_Option *insert_arg_option(Arena *arena, Argument_Table *table, String name, String *values, isize values_count)
+Arg_Option *insert_arg_option(Arena *arena, Argument_Table *table, String name, String_Array values)
 {
   Arg_Option *result = NULL;
 
@@ -96,7 +92,6 @@ Arg_Option *insert_arg_option(Arena *arena, Argument_Table *table, String name, 
     result->hash = string_hash_u32(name);
     result->name = name;
     result->values = values;
-    result->values_count = values_count;
   }
 
   return result;
@@ -140,23 +135,22 @@ Argument_Table parse_arguments(Arena *arena, i32 count, char **arguments)
 {
   Argument_Table result = {0};
 
-  result.raw_strings_count = count;
-  result.raw_strings = arena_calloc(arena, result.raw_strings_count, String);
+  result.raw_strings = arena_array(arena, count, String);
   for (i32 i = 1; i < count; i++)
   {
     char *c_string = arguments[i];
 
     String string = string_from_c_string(c_string);
 
-    result.raw_strings[i] = string;
+    result.raw_strings.data[i] = string;
   }
 
   result.option_table_count = 64;
   result.option_table = arena_calloc(arena, result.option_table_count, Arg_Option);
 
-  for (isize i = 0; i < result.raw_strings_count; i++)
+  for (isize i = 0; i < result.raw_strings.count; i++)
   {
-    String string = result.raw_strings[i];
+    String string = result.raw_strings.data[i];
     b32 is_option = true;
 
     // Option
@@ -184,8 +178,7 @@ Argument_Table parse_arguments(Arena *arena, i32 count, char **arguments)
       values_substring = string_advance(values_substring, 1); // Skip the delimiter
 
       // Add any values
-      String *values = NULL;
-      isize  values_count = 0;
+      String_Array values = {0};
 
       isize last_comma_index = -1;
       for (isize sub_index = 0; sub_index < values_substring.count; sub_index++)
@@ -205,23 +198,11 @@ Argument_Table parse_arguments(Arena *arena, i32 count, char **arguments)
 
         if (value_to_add.count)
         {
-          if (!values)
-          {
-            values = arena_new(arena, String);
-            *values = value_to_add;
-          }
-          else
-          {
-            // Better API for adding onto array in arena...
-            String *next = arena_new(arena, String);
-            *next = value_to_add;
-          }
-
-          values_count += 1;
+          array_add(arena, values, value_to_add);
         }
       }
 
-      Arg_Option *arg = insert_arg_option(arena, &result, name_substring, values, values_count);
+      insert_arg_option(arena, &result, name_substring, values);
     }
 
     // Its a positional

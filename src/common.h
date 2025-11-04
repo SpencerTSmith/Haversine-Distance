@@ -123,12 +123,18 @@ usize file_size(const char *name);
 typedef struct type##_Array type##_Array; \
 struct type##_Array                       \
 {                                         \
-  type *data;                             \
+  type  *data;                            \
   isize count;                            \
 }
 
+// Safe access... don't really use this often
+#define array_at(array, i) (assert(i < array.count), array.data[i])
+
+// No null terminated strings, please
 DEFINE_ARRAY(u8);
 typedef u8_Array String;
+
+DEFINE_ARRAY(String);
 
 #define String(s) (String){(u8 *)s, STATIC_ARRAY_COUNT(s) - 1}
 
@@ -294,6 +300,14 @@ String read_file_to_arena(Arena *arena, const char *name);
 #define arena_calloc(a, count, T) (T *)arena_alloc((a), sizeof(T) * (count), alignof(T))
 
 #define arena_array(a, _count, T) (T##_Array) {.data = arena_calloc(a, _count, T), .count = _count}
+
+// NOTE(ss): EVIL! Please make sure new does not have side effects when evaluated, or better yet is not an expression!
+#define array_add(a, array, new)                                                           \
+    !array.data ? (array.data = arena_alloc(a, sizeof(*array.data), alignof(*array.data)), array.data[array.count++] = new) : \
+    arena_alloc(a, sizeof(*array.data), alignof(*array.data)) == array.data + array.count ? \
+    array.data[array.count++] = new                                                    :   \
+    (LOG_ERROR("Tried to add to array noncontiguously!"), arena_pop(a, sizeof(*array.data)), new)
+
 
 // Useful for structs, much like new in other languages
 #define arena_new(a, T) arena_calloc(a, 1, T)
