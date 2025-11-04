@@ -249,12 +249,11 @@ typedef enum OS_Allocation_Flags
  #include <sys/random.h>
 #elif OS_WINDOWS
  #include <windows.h>
+#elif OS_MAC
 #endif
 
 void *os_allocate(usize size, OS_Allocation_Flags flags);
-
 b32 os_commit(void *start, usize size);
-
 void os_deallocate(void *start, usize size);
 
 b32 os_fill_buffer_random(String buffer);
@@ -266,7 +265,6 @@ b32 os_fill_buffer_random(String buffer);
 typedef enum Arena_Flags
 {
   ARENA_FLAG_NONE          = 0,
-  ARENA_FLAG_BUFFER_BACKED = 1 << 0, // Made with a provided backing buffer, therefore not responsible for freeing backing
 }
 Arena_Flags;
 
@@ -703,10 +701,7 @@ Arena __arena_make(Arena_Args *args)
 
 void arena_free(Arena *arena)
 {
-  if (!(arena->flags & ARENA_FLAG_BUFFER_BACKED))
-  {
-    os_deallocate(arena->base, arena->reserve_size);
-  }
+  os_deallocate(arena->base, arena->reserve_size);
 
   ZERO_STRUCT(arena);
 }

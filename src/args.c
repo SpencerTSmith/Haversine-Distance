@@ -12,7 +12,7 @@ struct Arg_Option
 typedef struct Argument_Table Args;
 struct Argument_Table
 {
-  String_Array raw_strings;
+  String program_name;
 
   Arg_Option *option_table;
   isize      option_table_count;
@@ -77,7 +77,7 @@ Arg_Option *insert_arg_option(Arena *arena, Args *args, String name, String_Arra
   else
   {
     // Collision
-    if (bucket->hash) // HACK: not safe... hash can be 0
+    if (bucket->name.data)
     {
       result = arena_new(arena, Arg_Option);
       // Insert at head
@@ -101,23 +101,15 @@ static
 Args parse_args(Arena *arena, i32 count, char **arguments)
 {
   Args result = {0};
-
-  result.raw_strings = arena_array(arena, count, String);
-  for (i32 i = 1; i < count; i++)
-  {
-    char *c_string = arguments[i];
-
-    String string = string_from_c_string(c_string);
-
-    result.raw_strings.data[i] = string;
-  }
+  result.program_name = string_from_c_string(arguments[0]);
 
   result.option_table_count = 64;
   result.option_table = arena_calloc(arena, result.option_table_count, Arg_Option);
 
-  for (isize i = 0; i < result.raw_strings.count; i++)
+  for (isize i = 1; i < count; i++)
   {
-    String string = result.raw_strings.data[i];
+    String string = string_from_c_string(arguments[i]);
+
     b32 is_option = true;
 
     // Option
@@ -173,12 +165,18 @@ Args parse_args(Arena *arena, i32 count, char **arguments)
         }
       }
 
+      if (values.count)
+      {
+        printf("Here!");
+      }
+
       insert_arg_option(arena, &result, name_substring, values);
     }
 
     // Its a positional
     else
     {
+      ASSERT(result.positionals_count < STATIC_COUNT(result.positionals), "Too many positional arguments for parsing");
       result.positionals[result.positionals_count] = string;
       result.positionals_count += 1;
     }
