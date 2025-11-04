@@ -60,7 +60,7 @@ typedef size_t    usize;
 typedef ptrdiff_t isize;
 
 #define _CONCAT(a, b) a##b
-#define CONCAT(a, b) _CONCAT(a, b)
+#define CONCAT(a, b) _CONCAT((a), (b))
 
 #define _STRINGIFY(a) #a
 #define STRINGIFY(a) _STRINGIFY(a)
@@ -68,6 +68,8 @@ typedef ptrdiff_t isize;
 #define CLAMP(value, min, max) (((value) < (min)) ? (min) : ((value) > (max)) ? (max) : (value))
 #define MAX(first, second) ((first) > (second) ? (first) : (second))
 #define MIN(first, second) ((first) > (second) ? (second) : (first))
+#define CLAMP_TOP (value, top) MIN(value, top)
+#define CLAMP_BOT (value, bot) MAX(value, bot)
 
 // Powers of 2 only
 #define ALIGN_ROUND_UP(x, b) (((x) + (b) - 1) & (~((b) - 1)))
@@ -76,9 +78,16 @@ typedef ptrdiff_t isize;
 #define RADIANS(degrees) ((degrees) * (PI / 180))
 
 #define STATIC_ARRAY_COUNT(arr) (sizeof(arr) / sizeof(arr[0]))
+#define STATIC_COUNT(arr)       (sizeof(arr) / sizeof(arr[0]))
 
-#define ZERO_STRUCT(ptr) (memset((ptr), 0, sizeof(*(ptr))))
-#define ZERO_SIZE(ptr, size) (memset((ptr), 0, (size)))
+#define MEM_SET(ptr, size, value) (memset((ptr), value, (size)))
+#define MEM_COPY(dst, src, size)  (memcpy((dst), (ptr), (size)))
+#define MEM_MOVE(dst, src, size)  (memmove((dst), (src), (size)))
+#define MEM_MATCH(a, b, size)     (memcmp((a), (b), (size)) == 0)
+
+#define ZERO_STRUCT(ptr)     (MEM_SET((ptr), sizeof(*(ptr)), 0))
+#define ZERO_SIZE(ptr, size) (MEM_SET((ptr), (size), 0))
+
 
 #define VOID_PROC ((void)0)
 
@@ -137,9 +146,8 @@ typedef u8_Array String;
 
 DEFINE_ARRAY(String);
 
-#define String(s) (String){(u8 *)s, STATIC_ARRAY_COUNT(s) - 1}
-
-#define String_Format(s) (int)s.count, s.data
+#define String(s) (String){(u8 *)(s), STATIC_COUNT(s) - 1}
+#define String_Format(s) (int)(s).count, (s).data
 
 b32 char_is_whitespace(u8 c);
 b32 char_is_digit(u8 c);
@@ -152,6 +160,7 @@ String string_advance(String string, isize advance);
 String string_trim_whitespace(String string);
 
 String string_substring(String string, isize start, isize end);
+// Returns -1 when not found
 isize string_find_substring(String to_check, isize start, String substring);
 
 String string_from_c_string(char *pointer);
@@ -204,7 +213,7 @@ void log_message(Log_Level level, const char *file, usize line, const char *mess
     }                                                                \
   )
 #else
-  #define ASSERT(expr, message) VOID_PROC
+  #define ASSERT(expr, message, ...) VOID_PROC
 #endif // DEBUG
 
 /////////////////
@@ -386,7 +395,7 @@ usize file_size(const char *name)
 
 String read_file_to_arena(Arena *arena, const char *name)
 {
-  usize buffer_size = file_size(name);
+  isize buffer_size = file_size(name);
 
   // Just in case we fail reading we won't commit any allocations
   Arena save = *arena;
@@ -439,7 +448,7 @@ u32 string_hash_u32(String string)
 
 b32 strings_equal(String a, String b)
 {
-  return a.count == b.count && memcmp(a.data, b.data, a.count) == 0;
+  return a.count == b.count && MEM_MATCH(a.data, b.data, a.count);
 }
 
 b32 string_starts_with(String prefix, String to_check)
