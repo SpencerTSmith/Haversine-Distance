@@ -301,7 +301,7 @@ String read_file_to_arena(Arena *arena, const char *name);
 
 #define arena_array(a, _count, T) (T##_Array) {.data = arena_calloc(a, _count, T), .count = _count}
 
-// NOTE(ss): EVIL! Please make sure new does not have side effects when evaluated, or better yet is not an expression!
+// NOTE(ss): EVIL! Macro VOODOO... too much? We will see...
 #define array_add(a, array, new)                                                           \
     !array.data ? (array.data = arena_alloc(a, sizeof(*array.data), alignof(*array.data)), array.data[array.count++] = new) : \
     arena_alloc(a, sizeof(*array.data), alignof(*array.data)) == array.data + array.count ? \
