@@ -25,11 +25,11 @@ address-anatomy: bin-folder
 tests: test-common test-arguments
 
 test-common: bin-folder
-	gcc ${CFLAGS} src/test_common.c -o bin/test_common.x
+	gcc ${CFLAGS} src/tests/test_common.c -o bin/test_common.x
 	bin/test_common.x
 
 test-arguments: bin-folder
-	gcc ${CFLAGS} src/test_arguments.c -o bin/test_arguments.x
+	gcc ${CFLAGS} src/tests/test_arguments.c -o bin/test_arguments.x
 	bin/test_arguments.x positional --verbose -v --foo --bar --baz=foo,bar,boo positional2 --bunk=bip,bop,bam,
 
 reptest-file-apis: bin-folder

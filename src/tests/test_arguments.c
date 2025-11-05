@@ -1,6 +1,6 @@
 #define COMMON_IMPLEMENTATION
-#include "common.h"
-#include "args.c"
+#include "../common.h"
+#include "../args.c"
 
 int main(int argc, char **argv)
 {
