@@ -151,8 +151,6 @@ b32 repetition_tester_is_testing(Repetition_Tester *tester)
         {
           tester->mode = REPTEST_MODE_COMPLETE;
 
-          Repetition_Tester_Results *results = &tester->results;
-
           print_repetition_test_values("MIN", results->min, tester->cpu_timer_frequency, 1);
           printf("\n");
 

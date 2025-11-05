@@ -55,7 +55,7 @@ void read_with_read(Repetition_Tester *tester, Operation_Parameters *params)
     if (fd != -1)
     {
       repetition_tester_begin_time(tester);
-      isize result = read(fd, params->buffer.data, params->buffer.count);
+      usize result = read(fd, params->buffer.data, params->buffer.count);
       repetition_tester_close_time(tester);
 
       if (result == params->buffer.count)
@@ -120,7 +120,7 @@ int main(int arg_count, char **args)
   {
     Repetition_Tester testers[STATIC_ARRAY_COUNT(test_entries)] = {0};
 
-    for (isize i = 0; i < STATIC_ARRAY_COUNT(test_entries); i++)
+    for (usize i = 0; i < STATIC_ARRAY_COUNT(test_entries); i++)
     {
       Repetition_Tester *tester = &testers[i];
       Operation_Entry *entry = &test_entries[i];

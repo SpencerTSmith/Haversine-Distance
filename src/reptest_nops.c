@@ -11,8 +11,13 @@ struct Operation_Parameters
   String buffer;
 };
 
+extern void nop1x3_all_bytes_asm(u64 count);
+extern void nop3x1_all_bytes_asm(u64 count);
+extern void nop9x1_all_bytes_asm(u64 count);
+extern void nop32x1_all_bytes_asm(u64 count);
+
 static
-void write_all_bytes_no_malloc(Repetition_Tester *tester, Operation_Parameters *params)
+void nop1x3_all_bytes(Repetition_Tester *tester, Operation_Parameters *params)
 {
   params->buffer.data = os_allocate(params->buffer.count, OS_ALLOCATION_COMMIT);
 
@@ -21,10 +26,7 @@ void write_all_bytes_no_malloc(Repetition_Tester *tester, Operation_Parameters *
     String buffer = params->buffer;
 
     repetition_tester_begin_time(tester);
-    for (isize i = 0; i < buffer.count; i++)
-    {
-      buffer.data[i] = (u8)i;
-    }
+    nop1x3_all_bytes_asm(buffer.count);
     repetition_tester_close_time(tester);
 
     repetition_tester_count_bytes(tester, buffer.count);
@@ -34,31 +36,68 @@ void write_all_bytes_no_malloc(Repetition_Tester *tester, Operation_Parameters *
 }
 
 static
-void write_all_bytes_malloc(Repetition_Tester *tester, Operation_Parameters *params)
+void nop3x1_all_bytes(Repetition_Tester *tester, Operation_Parameters *params)
 {
+  params->buffer.data = os_allocate(params->buffer.count, OS_ALLOCATION_COMMIT);
+
   while (repetition_tester_is_testing(tester))
   {
-    params->buffer.data = os_allocate(params->buffer.count, OS_ALLOCATION_COMMIT);
-
     String buffer = params->buffer;
 
     repetition_tester_begin_time(tester);
-    for (isize i = 0; i < buffer.count; i++)
-    {
-      buffer.data[i] = (u8)i;
-    }
+    nop3x1_all_bytes_asm(buffer.count);
     repetition_tester_close_time(tester);
 
     repetition_tester_count_bytes(tester, buffer.count);
-
-    os_deallocate(params->buffer.data, params->buffer.count);
   }
+
+  os_deallocate(params->buffer.data, params->buffer.count);
+}
+
+static
+void nop9x1_all_bytes(Repetition_Tester *tester, Operation_Parameters *params)
+{
+  params->buffer.data = os_allocate(params->buffer.count, OS_ALLOCATION_COMMIT);
+
+  while (repetition_tester_is_testing(tester))
+  {
+    String buffer = params->buffer;
+
+    repetition_tester_begin_time(tester);
+    nop3x1_all_bytes_asm(buffer.count);
+    repetition_tester_close_time(tester);
+
+    repetition_tester_count_bytes(tester, buffer.count);
+  }
+
+  os_deallocate(params->buffer.data, params->buffer.count);
+}
+
+static
+void nop32x1_all_bytes(Repetition_Tester *tester, Operation_Parameters *params)
+{
+  params->buffer.data = os_allocate(params->buffer.count, OS_ALLOCATION_COMMIT);
+
+  while (repetition_tester_is_testing(tester))
+  {
+    String buffer = params->buffer;
+
+    repetition_tester_begin_time(tester);
+    nop32x1_all_bytes_asm(buffer.count);
+    repetition_tester_close_time(tester);
+
+    repetition_tester_count_bytes(tester, buffer.count);
+  }
+
+  os_deallocate(params->buffer.data, params->buffer.count);
 }
 
 Operation_Entry test_entries[] =
 {
-  {String("alloc"),    write_all_bytes_malloc},
-  {String("no alloc"), write_all_bytes_no_malloc},
+  {String("1x3"),  nop1x3_all_bytes},
+  {String("3x1"),  nop3x1_all_bytes},
+  {String("9x1"),  nop9x1_all_bytes},
+  {String("32x1"), nop32x1_all_bytes},
 };
 
 int main(int arg_count, char **args)
@@ -71,7 +110,7 @@ int main(int arg_count, char **args)
   usize size = GB(1);
   String buffer =
   {
-    .data  = malloc(size),
+    .data  = os_allocate(size, OS_ALLOCATION_COMMIT),
     .count = size,
   };
 

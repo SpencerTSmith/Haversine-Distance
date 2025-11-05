@@ -43,7 +43,7 @@ void fill_buffer_branch_pattern(String buffer, Branch_Pattern pattern)
   }
   else
   {
-    for (isize i = 0; i < buffer.count; i++)
+    for (usize i = 0; i < buffer.count; i++)
     {
       u8 value = 0;
       switch (pattern)
@@ -127,7 +127,7 @@ int main(int arg_count, char **args)
     printf("Usage: %s [seconds_to_try_for_min]\n", args[0]);
   }
 
-  isize size = GB(1) + 8;
+  usize size = GB(1) + 8;
   Operation_Parameters params =
   {
     .buffer =

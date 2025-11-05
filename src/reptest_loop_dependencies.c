@@ -21,7 +21,7 @@ void write_all_bytes(Repetition_Tester *tester, Operation_Parameters *params)
     String buffer = params->buffer;
 
     repetition_tester_begin_time(tester);
-    for (isize i = 0; i < buffer.count; i++)
+    for (usize i = 0; i < buffer.count; i++)
     {
       buffer.data[i] = (u8)i;
     }
@@ -130,7 +130,7 @@ int main(int arg_count, char **args)
     printf("Usage: %s [seconds_to_try_for_min]\n", args[0]);
   }
 
-  isize size = GB(1);
+  usize size = GB(1);
   String buffer =
   {
     .data  = os_allocate(size, OS_ALLOCATION_COMMIT),

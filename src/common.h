@@ -60,7 +60,7 @@ typedef size_t    usize;
 typedef ptrdiff_t isize;
 
 #define _CONCAT(a, b) a##b
-#define CONCAT(a, b) _CONCAT((a), (b))
+#define CONCAT(a, b) _CONCAT(a, b)
 
 #define _STRINGIFY(a) #a
 #define STRINGIFY(a) _STRINGIFY(a)
@@ -72,7 +72,7 @@ typedef ptrdiff_t isize;
 #define CLAMP_BOT (value, bot) MAX(value, bot)
 
 // Powers of 2 only
-#define ALIGN_ROUND_UP(x, b) (((x) + (b) - 1) & (~((b) - 1)))
+#define ALIGN_POW2_UP(x, b) (((x) + (b) - 1) & (~((b) - 1)))
 
 #define PI 3.14159265358979323846
 #define RADIANS(degrees) ((degrees) * (PI / 180))
@@ -101,10 +101,20 @@ typedef ptrdiff_t isize;
 #define NSEC_PER_SEC BILLION(1)
 #define MSEC_PER_SEC THOUSAND(1)
 
+#define ANSI_RESET   "\x1b[0m"
+#define ANSI_BLACK   "\x1b[90m"
+#define ANSI_RED     "\x1b[91m"
+#define ANSI_GREEN   "\x1b[92m"
+#define ANSI_YELLOW  "\x1b[93m"
+#define ANSI_BLUE    "\x1b[94m"
+#define ANSI_MAGENTA "\x1b[95m"
+#define ANSI_CYAN    "\x1b[96m"
+#define ANSI_WHITE   "\x1b[97m"
+
 #define STATEMENT(s) do { s } while (0)
 
-#define DEFER_SCOPE(begin, end) \
-  for (isize __once__ = (begin, 0); !__once__; __once__++, (end))
+#define DEFER_SCOPE(begin, close) \
+  for (usize __once__ = (begin, 0); !__once__; __once__++, (close))
 
 #define ENUM_MEMBER(name) name,
 #define ENUM_STRING(name) # name,
@@ -121,7 +131,11 @@ typedef ptrdiff_t isize;
   static const char *CONCAT(Enum_Name, _strings)[] = \
   { Enum_Name(ENUM_STRING) };
 
-#define PRINT_EVAL(label, expr, expected) printf("%s:\n  Expression: %s\n    --> %s\n", (label), #expr, (expr) == expected ? "Success :)" : "Fail :(")
+// UGLY!
+#define PRINT_EVAL(label, expr, expected)            \
+  printf("[%s]: %s\n", (label), (expr) == expected ? \
+         ANSI_GREEN "Success :)" ANSI_RESET        : \
+         ANSI_RED "Fail :( @" __FILE__":" STRINGIFY(__LINE__)"\n" "  Expression: " #expr " \n  Expected:   " #expected ANSI_RESET)
 
 // Only useful if you know exactly how big the file is ahead of time, otherwise probably put on an arena if don't know...
 // or use file_size()
@@ -133,12 +147,12 @@ usize file_size(const char *name);
 // ARRAY MACRO
 ////////////////
 
-#define DEFINE_ARRAY(type)                \
-typedef struct type##_Array type##_Array; \
-struct type##_Array                       \
+#define DEFINE_ARRAY(Type)                \
+typedef struct Type##_Array Type##_Array; \
+struct Type##_Array                       \
 {                                         \
-  type  *data;                            \
-  isize count;                            \
+  Type  *data;                            \
+  usize count;                            \
 }
 
 // No null terminated strings, please
@@ -157,13 +171,13 @@ u32 string_hash_u32(String string);
 b32 strings_equal(String a, String b);
 b32 string_starts_with(String string, String prefix);
 
-String string_skip(String string, isize count);
-String string_chop(String string, isize count);
+String string_skip(String string, usize count);
+String string_chop(String string, usize count);
 String string_trim_whitespace(String string);
 
-String string_substring(String string, isize start, isize end);
-// Returns -1 when not found
-isize string_find_substring(String to_check, isize start, String substring);
+String string_substring(String string, usize start, usize close);
+// Returns string.count when not found
+usize string_find_substring(String string, usize start, String substring);
 
 String string_from_c_string(char *pointer);
 
@@ -264,7 +278,7 @@ b32 os_fill_buffer_random(String buffer);
 
 typedef enum Arena_Flags
 {
-  ARENA_FLAG_NONE          = 0,
+  ARENA_FLAG_NONE = 0,
 }
 Arena_Flags;
 
@@ -272,9 +286,9 @@ typedef struct Arena Arena;
 struct Arena
 {
   u8    *base;
-  isize reserve_size;
-  isize commit_size;
-  isize next_offset;
+  usize reserve_size;
+  usize commit_size;
+  usize next_offset;
 
   Arena_Flags flags;
 };
@@ -282,12 +296,12 @@ struct Arena
 typedef struct Arena_Args Arena_Args;
 struct Arena_Args
 {
-  isize reserve_size;
-  isize commit_size;
+  usize reserve_size;
+  usize commit_size;
   Arena_Flags flags;
 
   String make_call_file;
-  isize  make_call_line;
+  usize  make_call_line;
 };
 
 #define ARENA_DEFAULT_RESERVE_SIZE MB(256)
@@ -307,9 +321,9 @@ Arena __arena_make(Arena_Args *args);
 void arena_free(Arena *arena);
 void arena_print_stats(Arena *arena);
 
-void *arena_alloc(Arena *arena, isize size, isize alignment);
-void arena_pop_to(Arena *arena, isize offset);
-void arena_pop(Arena *arena, isize size);
+void *arena_alloc(Arena *arena, usize size, usize alignment);
+void arena_pop_to(Arena *arena, usize offset);
+void arena_pop(Arena *arena, usize size);
 void arena_clear(Arena *arena);
 
 // Reads the entire thing and returns a String (just a byte slice)
@@ -344,11 +358,11 @@ typedef struct Scratch Scratch;
 struct Scratch
 {
   Arena *arena;
-  isize offset_save;
+  usize offset_save;
 };
 
 Scratch scratch_begin(Arena *arena);
-void scratch_end(Scratch *scratch);
+void scratch_close(Scratch *scratch);
 
 #ifdef __cplusplus
 } // extern "C"
@@ -395,7 +409,7 @@ usize file_size(const char *name)
 
 String read_file_to_arena(Arena *arena, const char *name)
 {
-  isize buffer_size = file_size(name);
+  usize buffer_size = file_size(name);
 
   // Just in case we fail reading we won't commit any allocations
   Arena save = *arena;
@@ -432,7 +446,7 @@ u32 string_hash_u32(String string)
 {
   u32 hash = 0;
 
-  for (isize i = 0; i < string.count; i++)
+  for (usize i = 0; i < string.count; i++)
   {
     hash += string.data[i];
     hash += (hash << 10);
@@ -486,89 +500,75 @@ String string_from_c_string(char *pointer)
   return result;
 }
 
-String string_skip(String string, isize count)
+String string_skip(String string, usize count)
 {
-  String result = {0};
+  String result = string;
 
-  if (count < string.count)
-  {
-    result = string;
-    result.data  += count;
-    result.count -= count;
-  }
+  usize clamp = MIN(result.count, count);
+  result.data  += clamp;
+  result.count -= clamp;
 
   return result;
 }
 
-String string_chop(String string, isize count)
+String string_chop(String string, usize count)
 {
-  String result = {0};
+  String result = string;
 
-  if (count < string.count)
-  {
-    result = string;
-    result.count -= count;
-  }
+  usize clamp = MIN(result.count, count);
+  result.count -= clamp;
 
   return result;
 }
 
 String string_trim_whitespace(String string)
 {
+  usize start = 0;
+  usize stop  = string.count - 1;
+  // Eat leading whitespace
+  for (; start < string.count; start++)
+  {
+    u8 c = string.data[start];
+    if (!char_is_whitespace(c))
+    {
+      break;
+    }
+  }
+
+  for (; stop > start; stop--)
+  {
+    u8 c = string.data[stop];
+    if (!char_is_whitespace(c))
+    {
+      break;
+    }
+  }
+
+  return string_substring(string, start, stop + 1);
+}
+
+// Start inclusive, stop exclusive
+String string_substring(String string, usize start, usize stop)
+{
+  ASSERT(start <= stop, "Invalid substring range");
   String result = string;
 
-  // Eat leading whitespace
-  for (isize i = 0; i < result.count; i++)
-  {
-    u8 c = string.data[i];
-    if (char_is_whitespace(c))
-    {
-      result = string_skip(result, 1);
-    }
-    else
-    {
-      break;
-    }
-  }
-
-  for (isize i = result.count - 1; i >= 0; i--)
-  {
-    u8 c = result.data[i];
-    if (char_is_whitespace(c))
-    {
-      result.count -= 1;
-    }
-    else
-    {
-      break;
-    }
-  }
+  usize clamp_start = MIN(start, string.count);
+  usize clamp_stop  = MIN(stop, string.count);
+  result.data  += clamp_start;
+  result.count = (clamp_stop - clamp_start);
 
   return result;
 }
 
-// Start inclusive, end exclusive
-String string_substring(String string, isize start, isize end)
+usize string_find_substring(String string, usize start, String substring)
 {
-  String result = {0};
+  isize result = string.count;
+  usize comparison_count = string.count - substring.count + 1;
 
-  if (start >= 0 && end <= string.count && start < end)
+  for (usize i = start; i < comparison_count; i++)
   {
-    result.data  = string.data + start;
-    result.count = end - start;
-  }
-
-  return result;
-}
-
-isize string_find_substring(String to_check, isize start, String substring)
-{
-  isize result = -1;
-  isize comparison_count = to_check.count - substring.count + 1;
-
-  for (isize i = start; i < comparison_count; i++)
-  {
-    String to_compare = string_substring(to_check, i, i + substring.count);
+    String to_compare = string_substring(string, i, i + substring.count);
 
     if (strings_equal(to_compare, substring))
     {
@@ -583,13 +583,14 @@ isize string_find_substring(String to_check, isize start, String substring)
 #ifndef LOG_TITLE
 #define LOG_TITLE "COMMON"
 #endif
-const char *level_strings[] =
-{
-  LOG_ENUM(ENUM_STRING)
-};
 
 void log_message(Log_Level level, const char *file, usize line, const char *message, ...)
 {
+  const char *level_strings[] =
+  {
+    LOG_ENUM(ENUM_STRING)
+  };
+
   FILE *stream = stderr;
   if (level <= LOG_ERROR)
   {
@@ -664,7 +665,7 @@ void os_decommit(void *start, usize size)
 
 b32 os_fill_buffer_random(String buffer)
 {
-  isize result = getrandom(buffer.data, buffer.count, GRND_NONBLOCK); // Probably don't want to block
+  usize result = getrandom(buffer.data, buffer.count, GRND_NONBLOCK); // Probably don't want to block
 
   return result == buffer.count;
 }
@@ -677,8 +678,8 @@ b32 os_fill_buffer_random(String buffer)
 Arena __arena_make(Arena_Args *args)
 {
   // TODO: Large pages, verify that OS and CPU page size actually is 4kb, etc
-  isize res = ALIGN_ROUND_UP(args->reserve_size, KB(4));
-  isize com = ALIGN_ROUND_UP(args->commit_size,  KB(4));
+  usize res = ALIGN_POW2_UP(args->reserve_size, KB(4));
+  usize com = ALIGN_POW2_UP(args->commit_size,  KB(4));
   ASSERT(res >= com, "Reserve size must be greater than or equal to commit size.");
 
   Arena arena = {0};
@@ -713,40 +714,40 @@ void arena_print_stats(Arena *arena)
   printf("  Committed: %ld\n", arena->commit_size);
 }
 
-void *arena_alloc(Arena *arena, isize size, isize alignment) {
+void *arena_alloc(Arena *arena, usize size, usize alignment) {
   ASSERT(arena->base, "Arena memory is null");
 
-  isize aligned_offset = ALIGN_ROUND_UP(arena->next_offset, alignment);
+  usize aligned_offset = ALIGN_POW2_UP(arena->next_offset, alignment);
   void *ptr = arena->base + aligned_offset;
 
-  isize desired_capacity = aligned_offset + size;
+  usize wish_capacity = aligned_offset + size;
 
   // Do we need to commit memory?
-  isize desired_commit_size = ALIGN_ROUND_UP(desired_capacity, KB(4));
-  if (desired_commit_size > arena->commit_size)
+  usize wish_commit_size = ALIGN_POW2_UP(wish_capacity, KB(4));
+  if (wish_commit_size > arena->commit_size)
   {
-    isize commit_diff = desired_commit_size - arena->commit_size;
-    isize commit_size = ALIGN_ROUND_UP(commit_diff, KB(4)); // Commit only in pages
+    usize commit_diff = wish_commit_size - arena->commit_size;
+    usize commit_size = ALIGN_POW2_UP(commit_diff, KB(4)); // Commit only in pages
 
-    // Probably do separate chaining
-    ASSERT(commit_size < arena->reserve_size, "Not enough reserved memory in arena, DESIRED: %ld bytes RESERVED: %ld bytes",
-           desired_commit_size, arena->reserve_size);
+    // TODO: Probably do separate chaining
+    ASSERT(commit_size < arena->reserve_size, "Not enough reserved memory in arena, wish: %ld bytes RESERVED: %ld bytes",
+           wish_commit_size, arena->reserve_size);
 
     os_commit(arena->base + arena->commit_size, commit_size);
-    arena->commit_size = desired_commit_size;
+    arena->commit_size = wish_commit_size;
   }
 
   // If we either had the needed memory already, or could commit more
   if (ptr)
   {
     ZERO_SIZE(ptr, size);
-    arena->next_offset = desired_capacity;
+    arena->next_offset = wish_capacity;
   }
 
   return ptr;
 }
 
-void arena_pop_to(Arena *arena, isize offset)
+void arena_pop_to(Arena *arena, usize offset)
 {
   ASSERT(offset < arena->next_offset,
          "Failed to pop arena allocation, more than currently allocated");
@@ -755,7 +756,7 @@ void arena_pop_to(Arena *arena, isize offset)
   arena->next_offset = offset;
 }
 
-void arena_pop(Arena *arena, isize size)
+void arena_pop(Arena *arena, usize size)
 {
   arena_pop_to(arena, arena->next_offset - size);
 }
@@ -771,7 +772,7 @@ Scratch scratch_begin(Arena *arena)
   return scratch;
 }
 
-void scratch_end(Scratch *scratch)
+void scratch_close(Scratch *scratch)
 {
   arena_pop_to(scratch->arena, scratch->offset_save);
   ZERO_STRUCT(scratch);
@@ -783,20 +784,20 @@ void scratch_end(Scratch *scratch)
 #ifdef __cplusplus
 
 // Bounds checked array with length info embedded
-template <typename T, isize N>
+template <typename T, usize N>
 struct Array
 {
   T data[N];
 
-  static constexpr isize count() { return N; }
+  static constexpr usize count() { return N; }
 
   // Access
-  T& operator[](isize i)
+  T& operator[](usize i)
   {
     ASSERT(i < N, "Array bounds check index greater than count");
     return data[i];
   }
-  const T& operator[](isize i) const
+  const T& operator[](usize i) const
   {
     ASSERT(i < N, "Array bounds check index greater than count");
     return data[i];
@@ -813,15 +814,15 @@ template <typename T>
 struct Slice
 {
   T     *data;
-  isize count; // Don't modify it, obviously
+  usize count; // Don't modify it, obviously
 
   // Access
-  T& operator[](isize i)
+  T& operator[](usize i)
   {
     ASSERT(i < count, "Array bounds check index greater than count");
     return data[i];
   }
-  const T& operator[](isize i) const
+  const T& operator[](usize i) const
   {
     ASSERT(i < count, "Array bounds check index greater than count");
     return data[i];
@@ -835,13 +836,13 @@ struct Slice
 };
 
 // begin inclusive, end exclusive
-template <typename T, isize N>
-Slice<T> slice(Array<T, N> *array, isize begin, isize end)
+template <typename T, usize N>
+Slice<T> slice(Array<T, N> *array, usize begin, usize end)
 {
   ASSERT(begin >= 0 && end <= array->count(), "Slice bounds must not lie outside backing array bounds");
   ASSERT(begin < end, "Slice begin must come before end");
 
-  isize count = end - begin;
+  usize count = end - begin;
 
   Slice<T> slice = {};
   slice.data = &(*array)[begin];
@@ -850,12 +851,12 @@ Slice<T> slice(Array<T, N> *array, isize begin, isize end)
   return slice;
 }
 template <typename T>
-Slice<T> slice(Slice<T> _slice, isize begin, isize end)
+Slice<T> slice(Slice<T> _slice, usize begin, usize end)
 {
   ASSERT(begin >= 0 && end <= _slice.count, "Slice bounds must not lie outside backing array bounds");
   ASSERT(begin < end, "Slice begin must come before end");
 
-  isize count = end - begin;
+  usize count = end - begin;
 
   Slice<T> slice = {};
   slice.data = &_slice.data[begin];
@@ -865,21 +866,21 @@ Slice<T> slice(Slice<T> _slice, isize begin, isize end)
 }
 
 // Acts like a dynamic array, append, pop, etc but is backed by a statically sized array
-template <typename T, isize N>
+template <typename T, usize N>
 struct Bump_Array
 {
   T     data[N];
-  isize count;
+  usize count;
 
-  static constexpr isize capacity() { return N; }
+  static constexpr usize capacity() { return N; }
 
   // Access
-  T& operator[](isize i)
+  T& operator[](usize i)
   {
     ASSERT(i < count, "Array bounds check index greater than count");
     return data[i];
   }
-  const T& operator[](isize i) const
+  const T& operator[](usize i) const
   {
     ASSERT(i < count, "Array bounds check index greater than count");
     return data[i];
@@ -892,7 +893,7 @@ struct Bump_Array
   const T* end()   const { return data + count; }
 };
 
-template <typename T, isize N>
+template <typename T, usize N>
 void bump_array_add(Bump_Array<T, N> *array, T item)
 {
   ASSERT(array->count < N, "Bump Array is full!");
@@ -901,7 +902,7 @@ void bump_array_add(Bump_Array<T, N> *array, T item)
   array->count += 1;
 }
 
-template <typename T, isize N>
+template <typename T, usize N>
 void bump_array_pop(Bump_Array<T, N> *array)
 {
   ZERO_SIZE(&array->data[array->count - 1], sizeof(T));

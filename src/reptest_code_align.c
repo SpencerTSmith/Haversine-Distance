@@ -128,11 +128,10 @@ int main(int arg_count, char **args)
     printf("Usage: %s [seconds_to_try_for_min]\n", args[0]);
   }
 
-  isize size = GB(1);
   String buffer =
   {
-    .data  = os_allocate(size, OS_ALLOCATION_COMMIT),
-    .count = size,
+    .data  = os_allocate(GB(1), OS_ALLOCATION_COMMIT),
+    .count = GB(1),
   };
 
   Operation_Parameters params =
@@ -155,7 +154,7 @@ int main(int arg_count, char **args)
 
       printf("\n--- %.*s ---\n", String_Format(entry->name));
       printf("                                                          \r");
-      repetition_tester_new_wave(tester, size, cpu_timer_frequency, seconds_to_try_for_min);
+      repetition_tester_new_wave(tester, buffer.count, cpu_timer_frequency, seconds_to_try_for_min);
 
       entry->function(tester, &params);
     }

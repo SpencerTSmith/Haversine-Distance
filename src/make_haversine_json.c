@@ -4,11 +4,11 @@
 
 #include <stdlib.h>
 
-#define DESIRED_ARG_COUNT 3 + 1
+#define WISH_ARG_COUNT 3 + 1
 
 int main(int arg_count, char **args)
 {
-  if (arg_count != DESIRED_ARG_COUNT)
+  if (arg_count != WISH_ARG_COUNT)
   {
     printf("Usage: %s [uniform/cluster] [seed] [pair count]\n", args[0]);
     return 1;
@@ -37,7 +37,7 @@ int main(int arg_count, char **args)
 
   fprintf(json_file, "{\"pairs\" : [\n");
   char delimiter[2] = ""; // Nothing to begin with
-  for (isize i = 0; i < pair_count; i++)
+  for (i32 i = 0; i < pair_count; i++)
   {
     f64 inv_range_max = 1 / (f64)RAND_MAX;
 

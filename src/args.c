@@ -15,9 +15,9 @@ struct Argument_Table
   String program_name;
 
   Arg_Option *option_table;
-  isize      option_table_count;
+  usize      option_table_count;
 
-  isize  positionals_count;
+  usize  positionals_count;
   String positionals[32];
 };
 
@@ -30,7 +30,7 @@ Arg_Option *get_arg_option_bucket(Args *args, String name)
   {
     u32 hash = string_hash_u32(name);
 
-    isize index = hash % args->option_table_count;
+    usize index = hash % args->option_table_count;
 
     bucket = args->option_table + index;
   }
@@ -98,7 +98,7 @@ Arg_Option *insert_arg_option(Arena *arena, Args *args, String name, String_Arra
 }
 
 static
-Args parse_args(Arena *arena, i32 count, char **arguments)
+Args parse_args(Arena *arena, usize count, char **arguments)
 {
   Args result = {0};
   result.program_name = string_from_c_string(arguments[0]);
@@ -106,7 +106,7 @@ Args parse_args(Arena *arena, i32 count, char **arguments)
   result.option_table_count = 64;
   result.option_table = arena_calloc(arena, result.option_table_count, Arg_Option);
 
-  for (isize i = 1; i < count; i++)
+  for (usize i = 1; i < count; i++)
   {
     String string = string_from_c_string(arguments[i]);
 
@@ -129,48 +129,46 @@ Args parse_args(Arena *arena, i32 count, char **arguments)
 
     if (is_option)
     {
+      String name = string;
       isize values_delimeter_index = string_find_substring(string, 0, String("="));
-
-      String name_substring = string_substring(string, 0, values_delimeter_index);
-
-      String values_substring = string_substring(string, values_delimeter_index, string.count);
-      values_substring = string_skip(values_substring, 1); // Skip the delimiter
 
       // Add any values
       String_Array values = {0};
-
-      isize last_comma_idx = -1;
-      for (isize char_idx = 0; char_idx < values_substring.count; char_idx++)
+      if (values_delimeter_index != -1)
       {
-        u8 c = values_substring.data[char_idx];
+        name = string_substring(string, 0, values_delimeter_index);
 
-        // Start is always the last comma + 1, and since we start that as -1 the first value to extract starts at 0 index
-        isize start = last_comma_idx + 1;;
-        isize end   = 0;
-        if (c == ',')
-        {
-          end   = char_idx;
-          last_comma_idx = char_idx;
-        }
-        else if (char_idx == values_substring.count - 1)
-        {
-          end = values_substring.count;
-        }
+        String values_substring = string_substring(string, values_delimeter_index, string.count);
+        values_substring = string_skip(values_substring, 1); // Skip the delimiter
 
-        // If we actually do have a value to extract
-        if (end)
+        usize last_comma_idx = -1;
+        for (usize char_idx = 0; char_idx < values_substring.count; char_idx++)
         {
-          array_add(arena, values,
-                    string_substring(values_substring, start, end));
+          u8 c = values_substring.data[char_idx];
+
+          // Start is always the last comma + 1, and since we start that as -1 the first value to extract starts at 0 index
+          usize start = last_comma_idx + 1;;
+          usize end   = 0;
+          if (c == ',')
+          {
+            end   = char_idx;
+            last_comma_idx = char_idx;
+          }
+          else if (char_idx == values_substring.count - 1)
+          {
+            end = values_substring.count;
+          }
+
+          // If we actually do have a value to extract
+          if (end)
+          {
+            array_add(arena, values,
+                      string_substring(values_substring, start, end));
+          }
         }
       }
 
-      if (values.count)
-      {
-        printf("Here!");
-      }
-
-      insert_arg_option(arena, &result, name_substring, values);
+      insert_arg_option(arena, &result, name, values);
     }
 
     // Its a positional

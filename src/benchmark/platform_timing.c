@@ -56,7 +56,7 @@ u64 estimate_cpu_timer_freq(void)
 
   u64 cpu_frequency = 0;
 
-  assert(os_delta != 0 && "OS Time delta for cpu frequency estimation was somehow 0!");
+  ASSERT(os_delta, "OS Time delta for cpu frequency estimation was somehow 0!");
 
   // CPU time in OS ticks, divide by OS delta gives estimate of cpu frequency
   cpu_frequency = os_frequency * cpu_delta / os_delta;
