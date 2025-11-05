@@ -7,8 +7,6 @@ int main(int argc, char **argv)
   Arena arena = arena_make();
   Args arguments = parse_args(&arena, argc, argv);
 
-  // // Visual check
-  //
   // printf("\nVisual Check -----\n");
   // {
   //   printf("Program Name: %.*s\n", String_Format(arguments.program_name));
@@ -36,13 +34,19 @@ int main(int argc, char **argv)
   //     }
   //   }
   // }
-  //
-  // printf("\nTests ---------\n");
 
   // Test and such
   {
     const char *label = "args_has_flag";
     PRINT_EVAL(label, args_has_flag(&arguments, String("foo")), true);
+  }
+
+  {
+    const char* label = "args_get_option_values";
+    String_Array values = args_get_option_values(&arguments, String("baz"));
+    PRINT_EVAL(label, string_match(values.data[0], String("foo")), true);
+    PRINT_EVAL(label, string_match(values.data[1], String("bar")), true);
+    PRINT_EVAL(label, string_match(values.data[2], String("boo")), true);
   }
 
   {

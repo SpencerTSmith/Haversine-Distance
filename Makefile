@@ -3,7 +3,9 @@ SHELL := bash
 ON_WARNINGS := -Wall -Wextra -Wshadow -Wpointer-arith -Wcast-align -Wredundant-decls
 NO_WARNINGS := -Wno-unused-parameter -Wno-unused-function
 
-CFLAGS := -g -O1 -std=c99 -DDEBUG -DPROFILE ${ON_WARNINGS} ${NO_WARNINGS}
+OPTIMIZATION := -O0
+
+CFLAGS := -g -std=c99 -DDEBUG -DPROFILE ${ON_WARNINGS} ${NO_WARNINGS} ${OPTIMIZATION}
 
 TRY_FOR_MIN_TIME := 10
 
@@ -19,8 +21,8 @@ calc: bin-folder
 	bin/calc.x haversine_pairs.json solution_dump.data
 
 address-anatomy: bin-folder
-	gcc ${CFLAGS} src/address_anatomy.c -o bin/anatomy.x
-	bin/anatomy.x
+	gcc ${CFLAGS} src/address_anatomy.c -o bin/address_anatomy.x
+	bin/address_anatomy.x
 
 tests: test-common test-arguments
 

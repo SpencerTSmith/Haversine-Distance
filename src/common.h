@@ -134,8 +134,8 @@ typedef ptrdiff_t isize;
 // UGLY!
 #define PRINT_EVAL(label, expr, expected)            \
   printf("[%s]: %s\n", (label), (expr) == expected ? \
-         ANSI_GREEN "Success :)" ANSI_RESET        : \
-         ANSI_RED "Fail :( @" __FILE__":" STRINGIFY(__LINE__)"\n" "  Expression: " #expr " \n  Expected:   " #expected ANSI_RESET)
+         ANSI_GREEN "PASS :)" ANSI_RESET        : \
+         ANSI_RED "FAIL :( @" __FILE__":" STRINGIFY(__LINE__)"\n" "  Expression: " #expr " \n  Expected:   " #expected ANSI_RESET)
 
 // Only useful if you know exactly how big the file is ahead of time, otherwise probably put on an arena if don't know...
 // or use file_size()
@@ -155,31 +155,30 @@ struct Type##_Array                       \
   usize count;                            \
 }
 
-// No null terminated strings, please
+DEFINE_ARRAY(i64);
+DEFINE_ARRAY(i32);
+DEFINE_ARRAY(i16);
+DEFINE_ARRAY(i8);
+
+DEFINE_ARRAY(u64);
+DEFINE_ARRAY(u32);
+DEFINE_ARRAY(u16);
 DEFINE_ARRAY(u8);
+
+DEFINE_ARRAY(b64);
+DEFINE_ARRAY(b32);
+DEFINE_ARRAY(b16);
+DEFINE_ARRAY(b8);
+
+DEFINE_ARRAY(f64);
+DEFINE_ARRAY(f32);
+
+DEFINE_ARRAY(usize);
+DEFINE_ARRAY(isize);
+
+// No null terminated strings, please
 typedef u8_Array String;
-
 DEFINE_ARRAY(String);
-
-#define String(s) (String){(u8 *)(s), STATIC_COUNT(s) - 1}
-#define String_Format(s) (int)(s).count, (s).data
-
-b32 char_is_whitespace(u8 c);
-b32 char_is_digit(u8 c);
-
-u32 string_hash_u32(String string);
-b32 string_match(String a, String b);
-b32 string_starts_with(String string, String prefix);
-
-String string_skip(String string, usize count);
-String string_chop(String string, usize count);
-String string_trim_whitespace(String string);
-
-String string_substring(String string, usize start, usize close);
-// Returns string.count when not found
-usize string_find_substring(String string, usize start, String substring);
-
-String string_from_c_string(char *pointer);
 
 /////////////////
 // LOGGING
@@ -258,6 +257,7 @@ typedef enum OS_Allocation_Flags
 
 // TODO: Mac and Windows
 #ifdef OS_LINUX
+ #define _GNU_SOURCE
  #include <sys/mman.h>
  #include <sys/stat.h>
  #include <sys/random.h>
@@ -326,9 +326,6 @@ void arena_pop_to(Arena *arena, usize offset);
 void arena_pop(Arena *arena, usize size);
 void arena_clear(Arena *arena);
 
-// Reads the entire thing and returns a String (just a byte slice)
-String read_file_to_arena(Arena *arena, const char *name);
-
 // Helper Macros ----------------------------------------------------------------
 
 // specify the arena, the number of elements, and the type... c(ounted)alloc
@@ -363,6 +360,36 @@ struct Scratch
 
 Scratch scratch_begin(Arena *arena);
 void scratch_close(Scratch *scratch);
+
+/////////////////
+// STRINGS
+////////////////
+
+#define String(s) (String){(u8 *)(s), STATIC_COUNT(s) - 1}
+#define String_Format(s) (int)(s).count, (s).data
+
+b32 char_is_whitespace(u8 c);
+b32 char_is_digit(u8 c);
+
+u32 string_hash_u32(String string);
+b32 string_match(String a, String b);
+b32 string_starts_with(String string, String prefix);
+
+String string_skip(String string, usize count);
+String string_chop(String string, usize count);
+String string_trim_whitespace(String string);
+
+String string_substring(String string, usize start, usize close);
+// Returns string.count when not found
+usize string_find_substring(String string, usize start, String substring);
+
+String string_from_c_string(char *pointer);
+
+String_Array string_split(Arena *arena, String string, String delimiter);
+String_Array string_split_whitepace(Arena *arena, String string);
+
+// Reads the entire thing and returns a String (just a byte slice)
+String read_file_to_arena(Arena *arena, const char *name);
 
 #ifdef __cplusplus
 } // extern "C"
@@ -550,7 +577,8 @@ String string_trim_whitespace(String string)
 // Start inclusive, stop exclusive
 String string_substring(String string, usize start, usize stop)
 {
-  ASSERT(start <= stop, "Invalid substring range");
+  ASSERT(start <= stop, "Invalid substring range [%lu:%lu]", start, stop);
+
   String result = string;
 
   usize clamp_start = MIN(start, string.count);
@@ -563,25 +591,79 @@ String string_substring(String string, usize start, usize stop)
 
 usize string_find_substring(String string, usize start, String substring)
 {
+  ASSERT(substring.count, "Substring shouldn't be empty");
+
   isize result = string.count;
   usize comparison_count = string.count - substring.count + 1;
 
   for (usize i = start; i < comparison_count; i++)
   {
-    String to_compare = string_substring(string, i, i + substring.count);
-
-    if (string_match(to_compare, substring))
+    // Only do full check if first char matches
+    if (string.data[i] == substring.data[0])
     {
-      result = i;
-      break;
+      String to_compare = string_substring(string, i, i + substring.count);
+
+      if (string_match(to_compare, substring))
+      {
+        result = i;
+        break;
+      }
     }
   }
 
   return result;
 }
 
+String_Array string_split(Arena *arena, String string, String delimiter)
+{
+  String_Array result = {0};
+
+  usize start = 0;
+  for (usize delimiter_idx = string_find_substring(string, 0, delimiter);
+       delimiter_idx <= string.count && start < delimiter_idx;
+       delimiter_idx = string_find_substring(string, start, delimiter))
+  {
+    String substring = string_substring(string, start, delimiter_idx);
+    array_add(arena, result, substring);
+
+    start = delimiter_idx + delimiter.count;
+  }
+
+  return result;
+}
+
+String_Array string_split_whitepace(Arena *arena, String string)
+{
+  String_Array result = {0};
+
+  for (usize i = 0; i < string.count;)
+  {
+    usize start = i;
+    while (start < string.count && char_is_whitespace(string.data[start]))
+    {
+      start += 1;
+    }
+
+    usize stop = start;
+    while (stop < string.count && !char_is_whitespace(string.data[stop]))
+    {
+      stop += 1;
+    }
+
+    if (start < stop) // No empties
+    {
+      String substring = string_substring(string, start, stop);
+      array_add(arena, result, substring);
+    }
+
+    i = stop + 1;
+  }
+
+  return result;
+}
+
 #ifndef LOG_TITLE
-#define LOG_TITLE "COMMON"
+  #define LOG_TITLE "COMMON"
 #endif
 
 void log_message(Log_Level level, const char *file, usize line, const char *message, ...)

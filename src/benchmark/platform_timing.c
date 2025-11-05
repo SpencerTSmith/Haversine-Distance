@@ -96,13 +96,13 @@ u64 read_os_timer(void)
 }
 
 
-// NOTE: Sometimes a system's linux headers might not have '__NR_perf_event_open' ...
-static
-long perf_event_open(struct perf_event_attr *hw_event, pid_t pid,
-                     int cpu, int group_fd, unsigned long flags)
-{
-  return syscall(__NR_perf_event_open, hw_event, pid, cpu, group_fd, flags);
-}
+// static inline
+// long perf_event_open(struct perf_event_attr *hw_event, pid_t pid,
+//                      int cpu, int group_fd, unsigned long flags)
+// {
+//   // NOTE: Sometimes a system's linux headers might not have '__NR_perf_event_open' ...
+//   return syscall(__NR_perf_event_open, hw_event, pid, cpu, group_fd, flags);
+// }
 
 
 #endif

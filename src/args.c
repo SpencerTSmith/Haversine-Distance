@@ -137,33 +137,7 @@ Args parse_args(Arena *arena, usize count, char **arguments)
       values_substring = string_skip(values_substring, 1); // Skip the delimiter
 
       // Add any values
-      String_Array values = {0};
-
-      isize last_comma_idx = -1;
-      for (usize char_idx = 0; char_idx < values_substring.count; char_idx++)
-      {
-        u8 c = values_substring.data[char_idx];
-
-        // Start is always the last comma + 1, and since we start that as -1 the first value to extract starts at 0 index
-        usize start = last_comma_idx + 1;
-        usize end   = 0;
-        if (c == ',')
-        {
-          end = char_idx;
-          last_comma_idx = char_idx;
-        }
-        else if (char_idx == values_substring.count - 1)
-        {
-          end = values_substring.count;
-        }
-
-        // If we actually do have a value to extract
-        if (end)
-        {
-          array_add(arena, values,
-                    string_substring(values_substring, start, end));
-        }
-      }
+      String_Array values = string_split(arena, values_substring, String(","));
 
       insert_arg_option(arena, &result, name, values);
     }
