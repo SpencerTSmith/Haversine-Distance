@@ -4,12 +4,12 @@
 int main(int argc, char **argv)
 {
   {
-    const char *label = "strings_equal";
+    const char *label = "string_match";
     String string = String("Foo");
-    PRINT_EVAL(label, strings_equal(string, String("Foo")),   true);
-    PRINT_EVAL(label, strings_equal(string, String("Bar")),   false);
-    PRINT_EVAL(label, strings_equal(string, String("Foo\n")), false);
-    PRINT_EVAL(label, strings_equal(string, String(" Foo ")), false);
+    PRINT_EVAL(label, string_match(string, String("Foo")),   true);
+    PRINT_EVAL(label, string_match(string, String("Bar")),   false);
+    PRINT_EVAL(label, string_match(string, String("Foo\n")), false);
+    PRINT_EVAL(label, string_match(string, String(" Foo ")), false);
   }
 
   {
@@ -23,36 +23,36 @@ int main(int argc, char **argv)
   {
     const char *label = "string_skip";
     String string = String("Skipper");
-    PRINT_EVAL(label, strings_equal(string_skip(string, 1), String("kipper")), true);
-    PRINT_EVAL(label, strings_equal(string_skip(string, 2), String("ipper")),  true);
-    PRINT_EVAL(label, strings_equal(string_skip(string, string.count), String("")),  true);
-    PRINT_EVAL(label, strings_equal(string_skip(string, 8), String("")),       true);
+    PRINT_EVAL(label, string_match(string_skip(string, 1), String("kipper")), true);
+    PRINT_EVAL(label, string_match(string_skip(string, 2), String("ipper")),  true);
+    PRINT_EVAL(label, string_match(string_skip(string, string.count), String("")),  true);
+    PRINT_EVAL(label, string_match(string_skip(string, 8), String("")),       true);
   }
 
   {
     const char *label = "string_chop";
     String string = String("Chopper");
-    PRINT_EVAL(label, strings_equal(string_chop(string, 1), String("Choppe")), true);
-    PRINT_EVAL(label, strings_equal(string_chop(string, 2), String("Chopp")), true);
-    PRINT_EVAL(label, strings_equal(string_chop(string, string.count), String("")), true);
-    PRINT_EVAL(label, strings_equal(string_chop(string, 10), String("")), true);
+    PRINT_EVAL(label, string_match(string_chop(string, 1), String("Choppe")), true);
+    PRINT_EVAL(label, string_match(string_chop(string, 2), String("Chopp")), true);
+    PRINT_EVAL(label, string_match(string_chop(string, string.count), String("")), true);
+    PRINT_EVAL(label, string_match(string_chop(string, 10), String("")), true);
   }
 
   {
     const char *label = "string_trim_white_space";
-    PRINT_EVAL(label, strings_equal(string_trim_whitespace(String("  Foo")), String("Foo")), true);
-    PRINT_EVAL(label, strings_equal(string_trim_whitespace(String("Foo  ")), String("Foo")), true);
-    PRINT_EVAL(label, strings_equal(string_trim_whitespace(String("Foo\n")), String("Foo")), true);
+    PRINT_EVAL(label, string_match(string_trim_whitespace(String("  Foo")), String("Foo")), true);
+    PRINT_EVAL(label, string_match(string_trim_whitespace(String("Foo  ")), String("Foo")), true);
+    PRINT_EVAL(label, string_match(string_trim_whitespace(String("Foo\n")), String("Foo")), true);
   }
 
   {
     const char *label = "string_substring";
     String string = String("SubstringTest");
-    PRINT_EVAL(label, strings_equal(string_substring(string, 0, 6), String("Substr")), true);
-    PRINT_EVAL(label, strings_equal(string_substring(string, 3, 9), String("string")), true);
-    PRINT_EVAL(label, strings_equal(string_substring(string, 0, string.count), String("SubstringTest")), true);
-    PRINT_EVAL(label, strings_equal(string_substring(string, 5, 20), String("ringTest")), true);
-    PRINT_EVAL(label, strings_equal(string_substring(string, string.count, string.count), String("")), true);
+    PRINT_EVAL(label, string_match(string_substring(string, 0, 6), String("Substr")), true);
+    PRINT_EVAL(label, string_match(string_substring(string, 3, 9), String("string")), true);
+    PRINT_EVAL(label, string_match(string_substring(string, 0, string.count), String("SubstringTest")), true);
+    PRINT_EVAL(label, string_match(string_substring(string, 5, 20), String("ringTest")), true);
+    PRINT_EVAL(label, string_match(string_substring(string, string.count, string.count), String("")), true);
   }
 
   {

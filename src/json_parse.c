@@ -441,7 +441,7 @@ JSON_Object *lookup_json_object(JSON_Object *current, String key)
   {
     for (JSON_Object *cursor = current->first_child; cursor; cursor = cursor->next_sibling)
     {
-      if (strings_equal(key, cursor->key))
+      if (string_match(key, cursor->key))
       {
         result = cursor;
         break;

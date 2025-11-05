@@ -45,7 +45,7 @@ Arg_Option *get_arg_option_from_bucket(Arg_Option *bucket, String name)
 
   for (Arg_Option *cursor = bucket; cursor; cursor = cursor->hash_next)
   {
-    if (strings_equal(cursor->name, name))
+    if (string_match(cursor->name, name))
     {
       result = cursor;
       break;

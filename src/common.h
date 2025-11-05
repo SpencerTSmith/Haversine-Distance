@@ -168,7 +168,7 @@ b32 char_is_whitespace(u8 c);
 b32 char_is_digit(u8 c);
 
 u32 string_hash_u32(String string);
-b32 strings_equal(String a, String b);
+b32 string_match(String a, String b);
 b32 string_starts_with(String string, String prefix);
 
 String string_skip(String string, usize count);
@@ -460,7 +460,7 @@ u32 string_hash_u32(String string)
   return hash;
 }
 
-b32 strings_equal(String a, String b)
+b32 string_match(String a, String b)
 {
   return a.count == b.count && MEM_MATCH(a.data, b.data, a.count);
 }
@@ -478,7 +478,7 @@ b32 string_starts_with(String string, String prefix)
       .count = prefix.count,
     };
 
-    result = strings_equal(prefix, substring);
+    result = string_match(prefix, substring);
   }
 
   return result;
@@ -570,7 +570,7 @@ usize string_find_substring(String string, usize start, String substring)
   {
     String to_compare = string_substring(string, i, i + substring.count);
 
-    if (strings_equal(to_compare, substring))
+    if (string_match(to_compare, substring))
     {
       result = i;
       break;
