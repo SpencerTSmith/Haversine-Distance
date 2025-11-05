@@ -85,8 +85,10 @@ int main(int argc, char **argv)
     const char *label = "scratch_begin / scratch_end";
     Arena arena = arena_make();
     u32 *mem = arena_calloc(&arena, 5, u32);
+    mem[0] = 1;
     Scratch scratch = scratch_begin(&arena);
     u32 *temp = arena_calloc(&arena, 10, u32);
+    temp[1] = 1;
     scratch_close(&scratch);
     PRINT_EVAL(label, arena.next_offset == 5 * sizeof(u32), true);
 

@@ -24,17 +24,14 @@ extern "C"
  *
  */
 
-#include <stdint.h>
-#include <stdio.h>
-#include <stddef.h>
-#include <stdalign.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdarg.h>
 
 /////////////////
 // QOL/UTILITY
 ////////////////
+
+#include <stdint.h>
+#include <stddef.h>
+
 typedef int64_t i64;
 typedef int32_t i32;
 typedef int16_t i16;
@@ -50,14 +47,14 @@ typedef int32_t b32;
 typedef int16_t b16;
 typedef int8_t  b8;
 
-#define true  1
-#define false 0
-
 typedef double f64;
 typedef float  f32;
 
 typedef size_t    usize;
 typedef ptrdiff_t isize;
+
+#define true  1
+#define false 0
 
 #define _CONCAT(a, b) a##b
 #define CONCAT(a, b) _CONCAT(a, b)
@@ -68,10 +65,7 @@ typedef ptrdiff_t isize;
 #define CLAMP(value, min, max) (((value) < (min)) ? (min) : ((value) > (max)) ? (max) : (value))
 #define MAX(first, second) ((first) > (second) ? (first) : (second))
 #define MIN(first, second) ((first) > (second) ? (second) : (first))
-#define CLAMP_TOP (value, top) MIN(value, top)
-#define CLAMP_BOT (value, bot) MAX(value, bot)
 
-// Powers of 2 only
 #define ALIGN_POW2_UP(x, b) (((x) + (b) - 1) & (~((b) - 1)))
 
 #define PI 3.14159265358979323846
@@ -79,14 +73,6 @@ typedef ptrdiff_t isize;
 
 #define STATIC_ARRAY_COUNT(arr) (sizeof(arr) / sizeof(arr[0]))
 #define STATIC_COUNT(arr)       (sizeof(arr) / sizeof(arr[0]))
-
-#define MEM_SET(ptr, size, value) (memset((ptr), value, (size)))
-#define MEM_COPY(dst, src, size)  (memcpy((dst), (ptr), (size)))
-#define MEM_MOVE(dst, src, size)  (memmove((dst), (src), (size)))
-#define MEM_MATCH(a, b, size)     (memcmp((a), (b), (size)) == 0)
-
-#define ZERO_STRUCT(ptr)     (MEM_SET((ptr), sizeof(*(ptr)), 0))
-#define ZERO_SIZE(ptr, size) (MEM_SET((ptr), (size), 0))
 
 #define VOID_PROC ((void)0)
 
@@ -111,6 +97,16 @@ typedef ptrdiff_t isize;
 #define ANSI_CYAN    "\x1b[96m"
 #define ANSI_WHITE   "\x1b[97m"
 
+#include <string.h>
+
+#define MEM_SET(ptr, size, value) (memset((ptr), value, (size)))
+#define MEM_COPY(dst, src, size)  (memcpy((dst), (ptr), (size)))
+#define MEM_MOVE(dst, src, size)  (memmove((dst), (src), (size)))
+#define MEM_MATCH(a, b, size)     (memcmp((a), (b), (size)) == 0)
+
+#define ZERO_STRUCT(ptr)     (MEM_SET((ptr), sizeof(*(ptr)), 0))
+#define ZERO_SIZE(ptr, size) (MEM_SET((ptr), (size), 0))
+
 #define STATEMENT(s) do { s } while (0)
 
 #define DEFER_SCOPE(begin, close) \
@@ -131,7 +127,7 @@ typedef ptrdiff_t isize;
   static const char *CONCAT(Enum_Name, _strings)[] = \
   { Enum_Name(ENUM_STRING) };
 
-// UGLY!
+// UGLY! For quick regression tests
 #define PRINT_EVAL(label, expr, expected)            \
   printf("[%s]: %s\n", (label), (expr) == expected ? \
          ANSI_GREEN "PASS :)" ANSI_RESET        : \
@@ -183,6 +179,9 @@ DEFINE_ARRAY(String);
 /////////////////
 // LOGGING
 ////////////////
+
+#include <stdio.h>
+#include <stdarg.h>
 
 #define LOG_ENUM(X) \
   X(LOG_ASSERT)     \
@@ -257,7 +256,6 @@ typedef enum OS_Allocation_Flags
 
 // TODO: Mac and Windows
 #ifdef OS_LINUX
- #define _GNU_SOURCE
  #include <sys/mman.h>
  #include <sys/stat.h>
  #include <sys/random.h>
@@ -313,7 +311,7 @@ Arena __arena_make(Arena_Args *args);
 #define arena_make(...) __arena_make(&(Arena_Args){                              \
                                      .reserve_size = ARENA_DEFAULT_RESERVE_SIZE, \
                                      .commit_size  = ARENA_DEFAULT_COMMIT_SIZE,  \
-                                     .flags        = 0,                          \
+                                     .flags        = ARENA_FLAG_NONE,            \
                                      .make_call_file = String(__FILE__),         \
                                      .make_call_line = __LINE__,                 \
                                      __VA_ARGS__})
@@ -328,26 +326,29 @@ void arena_clear(Arena *arena);
 
 // Helper Macros ----------------------------------------------------------------
 
+#include <stdalign.h>
+
 // specify the arena, the number of elements, and the type... c(ounted)alloc
 #define arena_calloc(a, count, T) (T *)arena_alloc((a), sizeof(T) * (count), alignof(T))
 
-#define arena_array(a, _count, T) (T##_Array) {.data = arena_calloc(a, _count, T), .count = _count}
+#define arena_array(a, _count, T) (T##_Array) {.data = arena_calloc((a), (_count), T), .count = (_count)}
 
 // NOTE(ss): EVIL! Macro VOODOO... too much? We will see...
 // Only works when building contiguously, IE use a linked list if can't guarantee that
 // May add reloaction later... but maybe not
 // Probably also slow than needs to be as we need to go through alloc path for individual elements
-#define array_add(a, array, new)                                                            \
-    !array.data ? (array.data = arena_alloc(a, sizeof(*array.data), alignof(*array.data)), array.data[array.count++] = new, &array.data[array.count - 1]) : \
-    arena_alloc(a, sizeof(*array.data), alignof(*array.data)) == array.data + array.count ? \
-    (array.data[array.count++] = new, &array.data[array.count - 1])                       :   \
-    (LOG_ERROR("Tried to add to array in arena noncontiguously!"), arena_pop(a, sizeof(*array.data)), NULL)
+#define array_add(a, array, new)                                                                          \
+    !((array).data) ?                                                                                     \
+      ((array).data = arena_alloc(a, sizeof((array).data[0]), alignof((array).data[0])),                  \
+       (array).data[(array).count++] = new,                                                               \
+       &(array).data[(array).count - 1])                                                                  \
+    : arena_alloc(a, sizeof((array).data[0]), alignof((array).data[0])) == (array).data + (array).count ? \
+      ((array).data[(array).count++] = new, &(array).data[(array).count - 1])                             \
+    : (LOG_ERROR("Tried to add to array in arena noncontiguously!"), arena_pop(a, sizeof((array).data[0])), NULL)
 
 
 // Useful for structs, much like new in other languages
-#define arena_new(a, T) arena_calloc(a, 1, T)
-
-// Scratch Use Case -------------------------------------------------------------
+#define arena_new(a, T) arena_calloc((a), 1, T)
 
 // We just want some temporary memory
 // ie we save the offset we wish to return to after using this arena as a scratch pad
@@ -399,7 +400,7 @@ String read_file_to_arena(Arena *arena, const char *name);
 // IMPLEMENT
 ////////////////
 
-// #define COMMON_IMPLEMENTATION
+#define COMMON_IMPLEMENTATION
 #ifdef COMMON_IMPLEMENTATION
 // Returns size of file, or 0 if it can't open the file
 usize read_file_to_memory(const char *name, u8 *buffer, usize buffer_size)
