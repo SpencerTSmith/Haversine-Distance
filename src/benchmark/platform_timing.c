@@ -4,25 +4,6 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 
-// NOTE(ss): Will need to be defined per OS
-static
-u64 get_os_timer_freq(void)
-{
-  // Posix gettimeofday is in microseconds
-  return 1000000;
-}
-
-// NOTE(ss): Will need to be defined per OS
-static
-u64 read_os_timer(void)
-{
-  struct timeval value;
-  gettimeofday(&value, 0);
-  u64 result = get_os_timer_freq() * value.tv_sec + value.tv_usec;
-
-  return result;
-}
-
 // NOTE(ss): Will need to be defined per ISA
 static
 u64 read_cpu_timer(void)
@@ -31,7 +12,7 @@ u64 read_cpu_timer(void)
 }
 
 // Just an estimation, in microseconds
-static
+  static
 u64 estimate_cpu_timer_freq(void)
 {
   u64 wait_milliseconds = 1000;
@@ -76,6 +57,12 @@ f64 cpu_time_in_seconds(u64 cpu_time, u64 cpu_timer_frequency)
   return result;
 }
 
+
+#ifdef OS_LINUX
+#include <linux/perf_event.h>
+#include <sys/syscall.h>
+#include <unistd.h>
+
 static
 u64 read_os_page_faults(void)
 {
@@ -88,3 +75,34 @@ u64 read_os_page_faults(void)
   // For now just count both, maybe we get more specific later
   return hard_faults + soft_faults;
 }
+
+// NOTE(ss): Will need to be defined per OS
+static
+u64 get_os_timer_freq(void)
+{
+  // Posix gettimeofday is in microseconds
+  return 1000000;
+}
+
+// NOTE(ss): Will need to be defined per OS
+static
+u64 read_os_timer(void)
+{
+  struct timeval value;
+  gettimeofday(&value, 0);
+  u64 result = get_os_timer_freq() * value.tv_sec + value.tv_usec;
+
+  return result;
+}
+
+
+// NOTE: Sometimes a system's linux headers might not have '__NR_perf_event_open' ...
+static
+long perf_event_open(struct perf_event_attr *hw_event, pid_t pid,
+                     int cpu, int group_fd, unsigned long flags)
+{
+  return syscall(__NR_perf_event_open, hw_event, pid, cpu, group_fd, flags);
+}
+
+
+#endif
