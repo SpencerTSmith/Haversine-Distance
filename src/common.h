@@ -8,15 +8,15 @@ extern "C"
 
 /*
 
-  Standard stb style thing, yadda yadd
+  Standard stb style thing, yadda yadda
   put:
 
       #define COMMON_IMPLEMENTATION
       #include "common.h"
 
-  in exactly one file
+  in exactly one file, though personally I recommend unity builds
 
-  Also to title your log messages use:
+  Also, to title your log messages use:
 
      #define LOG_TITLE "TITLE"
 
@@ -120,7 +120,7 @@ typedef ptrdiff_t isize;
 // create a copy in every file that includes a file that uses this macro
 // You may prefer to do it in the traditional using the above ENUM_* macros
 //
-// NOTE(ss): Idea from https://philliptrudeau.com/blog/x-macro
+// NOTE: Idea from https://philliptrudeau.com/blog/x-macro
 #define ENUM_TABLE(Enum_Name)                  \
   typedef enum Enum_Name                       \
   { Enum_Name(ENUM_MEMBER) } Enum_Name;        \
@@ -331,7 +331,7 @@ void arena_clear(Arena *arena);
 
 #define arena_array(a, _count, T) (T##_Array) {.data = arena_calloc((a), (_count), T), .count = (_count)}
 
-// NOTE(ss): EVIL! Macro VOODOO... too much? We will see...
+// NOTE: EVIL! Macro VOODOO... too much? We will see...
 // Only works when building contiguously, IE use a linked list if can't guarantee that
 // May add reloaction later... but maybe not
 // Probably also slow than needs to be as we need to go through alloc path for individual elements
@@ -394,6 +394,8 @@ String read_file_to_arena(Arena *arena, const char *name);
 // ARGUMENTS
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// NOTE: Arguments must be either positionals (a plain string) or options (-string or --string)
+// options may have values passed as well (--option=val1,val2,val3)
 typedef struct Arg_Option Arg_Option;
 struct Arg_Option
 {
