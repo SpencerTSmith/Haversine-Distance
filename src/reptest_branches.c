@@ -2,6 +2,8 @@
 #define COMMON_IMPLEMENTATION
 #include "common.h"
 
+#include <time.h>
+
 #include "benchmark/benchmark_inc.h"
 #include "benchmark/benchmark_inc.c"
 
@@ -72,6 +74,7 @@ void fill_buffer_branch_pattern(String buffer, Branch_Pattern pattern)
         {
           value = (i % 4 == 0);
         }
+        break;
         case BRANCH_EVERY_FIVE:
         {
           value = (i % 5 == 0);
@@ -126,6 +129,8 @@ int main(int arg_count, char **args)
   {
     printf("Usage: %s [seconds_to_try_for_min]\n", args[0]);
   }
+
+  srand(time(NULL));
 
   usize size = GB(1) + 8;
   Operation_Parameters params =

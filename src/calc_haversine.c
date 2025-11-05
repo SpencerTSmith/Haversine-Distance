@@ -43,7 +43,7 @@ int main(int args_count, char **args)
   usize min_pair_bytes = 6 * 4; // 6 chars for something like "x0:0" (at least) and 4 of those
   usize max_pairs = source.count / min_pair_bytes; // Roughly, overestimate at least
   Haversine_Pair *pairs = arena_calloc(&arena, max_pairs, Haversine_Pair);
-  i32 pair_count = 0;
+  usize pair_count = 0;
 
   JSON_Object *root = parse_json(&arena, source);
 
@@ -83,8 +83,8 @@ int main(int args_count, char **args)
     String solution_dump = read_file_to_arena(&arena, args[2]);
     if (solution_dump.count >= sizeof(f64) + sizeof(i32))
     {
-      f64 solution_sum   = *(f64 *)solution_dump.data;
-      i32 solution_pairs = *(i32 *)(solution_dump.data + sizeof(f64));
+      f64 solution_sum = *(f64 *)solution_dump.data;
+      usize solution_pairs = *(usize *)(solution_dump.data + sizeof(f64));
 
       if (solution_pairs == pair_count)
       {

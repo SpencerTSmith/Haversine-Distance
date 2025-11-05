@@ -7,27 +7,27 @@ extern "C"
 #endif
 
 /*
- *
- * Standard stb style thing, yadda yadd
- * put:
- *
- *     #define COMMON_IMPLEMENTATION
- *     #include "common.h"
- *
- * in exactly one file
- *
- * Also to title your log messages use:
- *
- *    #define LOG_TITLE "TITLE"
- *
- * before defining the implementation
- *
- */
+
+  Standard stb style thing, yadda yadd
+  put:
+
+      #define COMMON_IMPLEMENTATION
+      #include "common.h"
+
+  in exactly one file
+
+  Also to title your log messages use:
+
+     #define LOG_TITLE "TITLE"
+
+  before defining the implementation
+
+*/
 
 
-/////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
 // QOL/UTILITY
-////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #include <stdint.h>
 #include <stddef.h>
@@ -128,10 +128,10 @@ typedef ptrdiff_t isize;
   { Enum_Name(ENUM_STRING) };
 
 // UGLY! For quick regression tests
-#define PRINT_EVAL(label, expr, expected)            \
-  printf("[%s]: %s\n", (label), (expr) == expected ? \
+#define PRINT_EVAL(label, expr)            \
+  printf("[%s]: %s\n", (label), (expr) ? \
          ANSI_GREEN "PASS :)" ANSI_RESET        : \
-         ANSI_RED "FAIL :( @" __FILE__":" STRINGIFY(__LINE__)"\n" "  Expression: " #expr " \n  Expected:   " #expected ANSI_RESET)
+         ANSI_RED "FAIL :( @" __FILE__":" STRINGIFY(__LINE__)"\n" "  Expression: " #expr ANSI_RESET)
 
 // Only useful if you know exactly how big the file is ahead of time, otherwise probably put on an arena if don't know...
 // or use file_size()
@@ -139,9 +139,9 @@ usize read_file_to_memory(const char *name, u8 *buffer, usize buffer_size);
 
 usize file_size(const char *name);
 
-/////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
 // ARRAY MACRO
-////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #define DEFINE_ARRAY(Type)                \
 typedef struct Type##_Array Type##_Array; \
@@ -176,9 +176,9 @@ DEFINE_ARRAY(isize);
 typedef u8_Array String;
 DEFINE_ARRAY(String);
 
-/////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
 // LOGGING
-////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #include <stdio.h>
 #include <stdarg.h>
@@ -197,11 +197,11 @@ typedef enum Log_Level
 // Intended for internal use... probably want to use the macros
 void log_message(Log_Level level, const char *file, usize line, const char *message, ...);
 
-#define LOG_FATAL(message, exit_code, ...)                                \
-  STATEMENT                                                               \
-  (                                                                       \
-      log_message(LOG_FATAL, __FILE__, __LINE__, message, ##__VA_ARGS__); \
-      exit(exit_code);                                                    \
+#define LOG_FATAL(message, exit_code, ...)                              \
+  STATEMENT                                                             \
+  (                                                                     \
+    log_message(LOG_FATAL, __FILE__, __LINE__, message, ##__VA_ARGS__); \
+    exit(exit_code);                                                    \
   )
 #define LOG_ERROR(message, ...) log_message(LOG_ERROR, __FILE__, __LINE__, message, ##__VA_ARGS__)
 
@@ -230,9 +230,9 @@ void log_message(Log_Level level, const char *file, usize line, const char *mess
   #define ASSERT(expr, message, ...) VOID_PROC
 #endif // DEBUG
 
-/////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
 // OS
-////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Basically stolen from Rad Debugger, see what we are compiled for
 #if defined(_WIN32)
@@ -270,9 +270,9 @@ void os_deallocate(void *start, usize size);
 
 b32 os_fill_buffer_random(String buffer);
 
-/////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
 // MEMORY
-////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
 typedef enum Arena_Flags
 {
@@ -324,8 +324,6 @@ void arena_pop_to(Arena *arena, usize offset);
 void arena_pop(Arena *arena, usize size);
 void arena_clear(Arena *arena);
 
-// Helper Macros ----------------------------------------------------------------
-
 #include <stdalign.h>
 
 // specify the arena, the number of elements, and the type... c(ounted)alloc
@@ -362,9 +360,9 @@ struct Scratch
 Scratch scratch_begin(Arena *arena);
 void scratch_close(Scratch *scratch);
 
-/////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
 // STRINGS
-////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #define String(s) (String){(u8 *)(s), STATIC_COUNT(s) - 1}
 #define String_Format(s) (int)(s).count, (s).data
@@ -392,13 +390,48 @@ String_Array string_split_whitepace(Arena *arena, String string);
 // Reads the entire thing and returns a String (just a byte slice)
 String read_file_to_arena(Arena *arena, const char *name);
 
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// ARGUMENTS
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+typedef struct Arg_Option Arg_Option;
+struct Arg_Option
+{
+  Arg_Option   *hash_next;
+  u32          hash;
+  String       name;
+  String_Array values;
+};
+
+typedef struct Argument_Table Args;
+struct Argument_Table
+{
+  String program_name;
+
+  Arg_Option *option_table;
+  usize      option_table_count;
+
+  usize  positionals_count;
+  String positionals[32];
+};
+
+Arg_Option *get_arg_option_bucket(Args *args, String name);
+Arg_Option *get_arg_option_from_bucket(Arg_Option *bucket, String name);
+Arg_Option *find_arg_option(Args *args, String name);
+Arg_Option *insert_arg_option(Arena *arena, Args *args, String name, String_Array values);
+Args parse_args(Arena *arena, usize count, char **arguments);
+
+b32 args_has_flag(Args *table, String flag);
+String_Array args_get_option_values(Args *table, String option);
+
+
 #ifdef __cplusplus
 } // extern "C"
 #endif
 
-/////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
 // IMPLEMENT
-////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #define COMMON_IMPLEMENTATION
 #ifdef COMMON_IMPLEMENTATION
@@ -861,137 +894,143 @@ void scratch_close(Scratch *scratch)
   ZERO_STRUCT(scratch);
 }
 
+Arg_Option *get_arg_option_bucket(Args *args, String name)
+{
+  Arg_Option *bucket = NULL;
+
+  if (args->option_table_count)
+  {
+    u32 hash = string_hash_u32(name);
+
+    usize index = hash % args->option_table_count;
+
+    bucket = args->option_table + index;
+  }
+
+  return bucket;
+}
+
+Arg_Option *get_arg_option_from_bucket(Arg_Option *bucket, String name)
+{
+  Arg_Option *result = NULL;
+
+  for (Arg_Option *cursor = bucket; cursor; cursor = cursor->hash_next)
+  {
+    if (string_match(cursor->name, name))
+    {
+      result = cursor;
+      break;
+    }
+  }
+
+  return result;
+}
+
+Arg_Option *find_arg_option(Args *args, String name)
+{
+  return get_arg_option_from_bucket(get_arg_option_bucket(args, name), name);
+}
+
+Arg_Option *insert_arg_option(Arena *arena, Args *args, String name, String_Array values)
+{
+  Arg_Option *result = NULL;
+
+  Arg_Option *bucket = get_arg_option_bucket(args, name);
+  Arg_Option *exists = get_arg_option_from_bucket(bucket, name);
+
+  // We already inserted it
+  if (exists)
+  {
+    result = exists;
+  }
+  else
+  {
+    // Collision
+    if (bucket->name.data)
+    {
+      result = arena_new(arena, Arg_Option);
+      // Insert at head
+      result->hash_next = bucket->hash_next;
+      bucket->hash_next = result;
+    }
+    else
+    {
+      result = bucket;
+    }
+
+    result->hash = string_hash_u32(name);
+    result->name = name;
+    result->values = values;
+  }
+
+  return result;
+}
+
+Args parse_args(Arena *arena, usize count, char **arguments)
+{
+  Args result = {0};
+  result.program_name = string_from_c_string(arguments[0]);
+
+  result.option_table_count = 64;
+  result.option_table = arena_calloc(arena, result.option_table_count, Arg_Option);
+
+  for (usize i = 1; i < count; i++)
+  {
+    String string = string_from_c_string(arguments[i]);
+
+    b32 is_option = true;
+
+    // Option
+    if (string_starts_with(string, String("--")))
+    {
+      string = string_skip(string, 2);
+    }
+    else if (string_starts_with(string, String("-")))
+    {
+      string = string_skip(string, 1);
+    }
+    // Positional
+    else
+    {
+      is_option = false;
+    }
+
+    if (is_option)
+    {
+      usize values_delimeter_idx = string_find_substring(string, 0, String("="));
+
+      String name = string_substring(string, 0, values_delimeter_idx);
+
+      String values_substring = string_substring(string, values_delimeter_idx, string.count);
+      values_substring = string_skip(values_substring, 1); // Skip the delimiter
+
+      // Add any values
+      String_Array values = string_split(arena, values_substring, String(","));
+
+      insert_arg_option(arena, &result, name, values);
+    }
+
+    // Its a positional
+    else
+    {
+      ASSERT(result.positionals_count < STATIC_COUNT(result.positionals), "Too many positional arguments for parsing");
+      result.positionals[result.positionals_count] = string;
+      result.positionals_count += 1;
+    }
+  }
+
+  return result;
+}
+
+b32 args_has_flag(Args *table, String flag)
+{
+  return find_arg_option(table, flag) != NULL;
+}
+
+String_Array args_get_option_values(Args *table, String option)
+{
+  return find_arg_option(table, option)->values;
+}
+
 #endif // COMMON_IMPLEMENTATION
-
-// C++ Garbage
-#ifdef __cplusplus
-
-// Bounds checked array with length info embedded
-template <typename T, usize N>
-struct Array
-{
-  T data[N];
-
-  static constexpr usize count() { return N; }
-
-  // Access
-  T& operator[](usize i)
-  {
-    ASSERT(i < N, "Array bounds check index greater than count");
-    return data[i];
-  }
-  const T& operator[](usize i) const
-  {
-    ASSERT(i < N, "Array bounds check index greater than count");
-    return data[i];
-  }
-
-  // Iteration
-  T* begin() { return data; }
-  T* end()   { return data + N; }
-  const T* begin() const { return data; }
-  const T* end()   const { return data + N; }
-};
-
-template <typename T>
-struct Slice
-{
-  T     *data;
-  usize count; // Don't modify it, obviously
-
-  // Access
-  T& operator[](usize i)
-  {
-    ASSERT(i < count, "Array bounds check index greater than count");
-    return data[i];
-  }
-  const T& operator[](usize i) const
-  {
-    ASSERT(i < count, "Array bounds check index greater than count");
-    return data[i];
-  }
-
-  // Iteration
-  T* begin() { return data; }
-  T* end()   { return data + count; }
-  const T* begin() const { return data; }
-  const T* end()   const { return data + count; }
-};
-
-// begin inclusive, end exclusive
-template <typename T, usize N>
-Slice<T> slice(Array<T, N> *array, usize begin, usize end)
-{
-  ASSERT(begin >= 0 && end <= array->count(), "Slice bounds must not lie outside backing array bounds");
-  ASSERT(begin < end, "Slice begin must come before end");
-
-  usize count = end - begin;
-
-  Slice<T> slice = {};
-  slice.data = &(*array)[begin];
-  slice.count = count;
-
-  return slice;
-}
-template <typename T>
-Slice<T> slice(Slice<T> _slice, usize begin, usize end)
-{
-  ASSERT(begin >= 0 && end <= _slice.count, "Slice bounds must not lie outside backing array bounds");
-  ASSERT(begin < end, "Slice begin must come before end");
-
-  usize count = end - begin;
-
-  Slice<T> slice = {};
-  slice.data = &_slice.data[begin];
-  slice.count = count;
-
-  return slice;
-}
-
-// Acts like a dynamic array, append, pop, etc but is backed by a statically sized array
-template <typename T, usize N>
-struct Bump_Array
-{
-  T     data[N];
-  usize count;
-
-  static constexpr usize capacity() { return N; }
-
-  // Access
-  T& operator[](usize i)
-  {
-    ASSERT(i < count, "Array bounds check index greater than count");
-    return data[i];
-  }
-  const T& operator[](usize i) const
-  {
-    ASSERT(i < count, "Array bounds check index greater than count");
-    return data[i];
-  }
-
-  // Iteration
-  T* begin() { return data; }
-  T* end()   { return data + count; }
-  const T* begin() const { return data; }
-  const T* end()   const { return data + count; }
-};
-
-template <typename T, usize N>
-void bump_array_add(Bump_Array<T, N> *array, T item)
-{
-  ASSERT(array->count < N, "Bump Array is full!");
-
-  array->data[array->count] = item;
-  array->count += 1;
-}
-
-template <typename T, usize N>
-void bump_array_pop(Bump_Array<T, N> *array)
-{
-  ZERO_SIZE(&array->data[array->count - 1], sizeof(T));
-  array->count -= 1;
-}
-
-#endif // __cplusplus C++ Garbage
-
 #endif // COMMON_H

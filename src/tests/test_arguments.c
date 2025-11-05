@@ -1,6 +1,5 @@
 #define COMMON_IMPLEMENTATION
 #include "../common.h"
-#include "../args.c"
 
 int main(int argc, char **argv)
 {
@@ -38,22 +37,30 @@ int main(int argc, char **argv)
   // Test and such
   {
     const char *label = "args_has_flag";
-    PRINT_EVAL(label, args_has_flag(&arguments, String("foo")), true);
+    PRINT_EVAL(label, args_has_flag(&arguments, String("foo")));
   }
 
   {
-    const char* label = "args_get_option_values";
+    const char *label = "args_get_option_values";
     String_Array values = args_get_option_values(&arguments, String("baz"));
-    PRINT_EVAL(label, string_match(values.data[0], String("foo")), true);
-    PRINT_EVAL(label, string_match(values.data[1], String("bar")), true);
-    PRINT_EVAL(label, string_match(values.data[2], String("boo")), true);
+    PRINT_EVAL(label, string_match(values.data[0], String("foo")));
+    PRINT_EVAL(label, string_match(values.data[1], String("bar")));
+    PRINT_EVAL(label, string_match(values.data[2], String("boo")));
   }
 
   {
-    const char* label = "args_get_option_values";
+    const char *label = "args_get_option_values";
     String_Array values = args_get_option_values(&arguments, String("bunk"));
-    PRINT_EVAL(label, string_match(values.data[0], String("bip")), true);
-    PRINT_EVAL(label, string_match(values.data[1], String("bop")), true);
-    PRINT_EVAL(label, string_match(values.data[2], String("bam")), true);
+    PRINT_EVAL(label, string_match(values.data[0], String("bip")));
+    PRINT_EVAL(label, string_match(values.data[1], String("bop")));
+    PRINT_EVAL(label, string_match(values.data[2], String("bam")));
+  }
+
+  {
+    const char *label = "args_positionals";
+    String *positionals = arguments.positionals;
+    PRINT_EVAL(label, arguments.positionals_count == 2);
+    PRINT_EVAL(label, string_match(positionals[0], String("positional")));
+    PRINT_EVAL(label, string_match(positionals[1], String("positional2")));
   }
 }
