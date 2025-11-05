@@ -22,6 +22,8 @@ address-anatomy: bin-folder
 	gcc ${CFLAGS} src/address_anatomy.c -o bin/anatomy.x
 	bin/anatomy.x
 
+tests: test-common test-arguments
+
 test-common: bin-folder
 	gcc ${CFLAGS} src/test_common.c -o bin/test_common.x
 	bin/test_common.x

@@ -59,9 +59,9 @@ int main(int argc, char **argv)
     const char *label = "string_find_substring";
     String string = String("Find the needle in the haystack.");
     PRINT_EVAL(label, string_find_substring(string, 0, String("needle")) == 9, true);
-    PRINT_EVAL(label, string_find_substring(string, 10, String("needle")) == -1, true);
+    PRINT_EVAL(label, string_find_substring(string, 10, String("needle")) == string.count, true);
     PRINT_EVAL(label, string_find_substring(string, 0, String("haystack")) == 23, true);
-    PRINT_EVAL(label, string_find_substring(string, 0, String("missing")) == -1, true);
+    PRINT_EVAL(label, string_find_substring(string, 0, String("missing")) == string.count, true);
   }
 
   {

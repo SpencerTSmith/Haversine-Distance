@@ -46,5 +46,9 @@ int main(int argc, char **argv)
   }
   {
     String_Array values = args_get_option_values(&arguments, String("bunk"));
+    for (usize i = 0; i < values.count; i++)
+    {
+
+    }
   }
 }

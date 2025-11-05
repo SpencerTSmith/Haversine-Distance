@@ -129,42 +129,39 @@ Args parse_args(Arena *arena, usize count, char **arguments)
 
     if (is_option)
     {
-      String name = string;
-      isize values_delimeter_index = string_find_substring(string, 0, String("="));
+      usize values_delimeter_idx = string_find_substring(string, 0, String("="));
+
+      String name = string_substring(string, 0, values_delimeter_idx);
+
+      String values_substring = string_substring(string, values_delimeter_idx, string.count);
+      values_substring = string_skip(values_substring, 1); // Skip the delimiter
 
       // Add any values
       String_Array values = {0};
-      if (values_delimeter_index != -1)
+
+      isize last_comma_idx = -1;
+      for (usize char_idx = 0; char_idx < values_substring.count; char_idx++)
       {
-        name = string_substring(string, 0, values_delimeter_index);
+        u8 c = values_substring.data[char_idx];
 
-        String values_substring = string_substring(string, values_delimeter_index, string.count);
-        values_substring = string_skip(values_substring, 1); // Skip the delimiter
-
-        usize last_comma_idx = -1;
-        for (usize char_idx = 0; char_idx < values_substring.count; char_idx++)
+        // Start is always the last comma + 1, and since we start that as -1 the first value to extract starts at 0 index
+        usize start = last_comma_idx + 1;
+        usize end   = 0;
+        if (c == ',')
         {
-          u8 c = values_substring.data[char_idx];
+          end = char_idx;
+          last_comma_idx = char_idx;
+        }
+        else if (char_idx == values_substring.count - 1)
+        {
+          end = values_substring.count;
+        }
 
-          // Start is always the last comma + 1, and since we start that as -1 the first value to extract starts at 0 index
-          usize start = last_comma_idx + 1;;
-          usize end   = 0;
-          if (c == ',')
-          {
-            end   = char_idx;
-            last_comma_idx = char_idx;
-          }
-          else if (char_idx == values_substring.count - 1)
-          {
-            end = values_substring.count;
-          }
-
-          // If we actually do have a value to extract
-          if (end)
-          {
-            array_add(arena, values,
-                      string_substring(values_substring, start, end));
-          }
+        // If we actually do have a value to extract
+        if (end)
+        {
+          array_add(arena, values,
+                    string_substring(values_substring, start, end));
         }
       }
 
