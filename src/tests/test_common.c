@@ -4,6 +4,34 @@
 int main(int argc, char **argv)
 {
   {
+    const char *label = "CLAMP";
+
+    {
+      i32 min = 1;
+      i32 max = 11;
+      i32 a = 10;
+
+      PRINT_EVAL(label, CLAMP(a, min, max) == a);
+    }
+
+    {
+      i32 min = 1;
+      i32 max = 9;
+      i32 a = 10;
+
+      PRINT_EVAL(label, CLAMP(a, min, max) == max);
+    }
+
+    {
+      i32 min = 11;
+      i32 max = 15;
+      i32 a = 10;
+
+      PRINT_EVAL(label, CLAMP(a, min, max) == min);
+    }
+  }
+
+  {
     const char *label = "MAX";
     i32 a = 4;
     i32 b = 5;
