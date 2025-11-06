@@ -20,7 +20,7 @@ extern void nop_aligned63_asm(u64 count);
 static
 void nop_aligned64(Repetition_Tester *tester, Operation_Parameters *params)
 {
-  params->buffer.data = os_allocate(params->buffer.count, OS_ALLOCATION_COMMIT);
+  params->buffer.v = os_allocate(params->buffer.count, OS_ALLOCATION_COMMIT);
 
   while (repetition_tester_is_testing(tester))
   {
@@ -33,13 +33,13 @@ void nop_aligned64(Repetition_Tester *tester, Operation_Parameters *params)
     repetition_tester_count_bytes(tester, buffer.count);
   }
 
-  os_deallocate(params->buffer.data, params->buffer.count);
+  os_deallocate(params->buffer.v, params->buffer.count);
 }
 
 static
 void nop_aligned1(Repetition_Tester *tester, Operation_Parameters *params)
 {
-  params->buffer.data = os_allocate(params->buffer.count, OS_ALLOCATION_COMMIT);
+  params->buffer.v = os_allocate(params->buffer.count, OS_ALLOCATION_COMMIT);
 
   while (repetition_tester_is_testing(tester))
   {
@@ -52,13 +52,13 @@ void nop_aligned1(Repetition_Tester *tester, Operation_Parameters *params)
     repetition_tester_count_bytes(tester, buffer.count);
   }
 
-  os_deallocate(params->buffer.data, params->buffer.count);
+  os_deallocate(params->buffer.v, params->buffer.count);
 }
 
 static
 void nop_aligned15(Repetition_Tester *tester, Operation_Parameters *params)
 {
-  params->buffer.data = os_allocate(params->buffer.count, OS_ALLOCATION_COMMIT);
+  params->buffer.v = os_allocate(params->buffer.count, OS_ALLOCATION_COMMIT);
 
   while (repetition_tester_is_testing(tester))
   {
@@ -71,13 +71,13 @@ void nop_aligned15(Repetition_Tester *tester, Operation_Parameters *params)
     repetition_tester_count_bytes(tester, buffer.count);
   }
 
-  os_deallocate(params->buffer.data, params->buffer.count);
+  os_deallocate(params->buffer.v, params->buffer.count);
 }
 
 static
 void nop_aligned31(Repetition_Tester *tester, Operation_Parameters *params)
 {
-  params->buffer.data = os_allocate(params->buffer.count, OS_ALLOCATION_COMMIT);
+  params->buffer.v = os_allocate(params->buffer.count, OS_ALLOCATION_COMMIT);
 
   while (repetition_tester_is_testing(tester))
   {
@@ -90,13 +90,13 @@ void nop_aligned31(Repetition_Tester *tester, Operation_Parameters *params)
     repetition_tester_count_bytes(tester, buffer.count);
   }
 
-  os_deallocate(params->buffer.data, params->buffer.count);
+  os_deallocate(params->buffer.v, params->buffer.count);
 }
 
 static
 void nop_aligned63(Repetition_Tester *tester, Operation_Parameters *params)
 {
-  params->buffer.data = os_allocate(params->buffer.count, OS_ALLOCATION_COMMIT);
+  params->buffer.v = os_allocate(params->buffer.count, OS_ALLOCATION_COMMIT);
 
   while (repetition_tester_is_testing(tester))
   {
@@ -109,7 +109,7 @@ void nop_aligned63(Repetition_Tester *tester, Operation_Parameters *params)
     repetition_tester_count_bytes(tester, buffer.count);
   }
 
-  os_deallocate(params->buffer.data, params->buffer.count);
+  os_deallocate(params->buffer.v, params->buffer.count);
 }
 
 Operation_Entry test_entries[] =
@@ -130,7 +130,7 @@ int main(int arg_count, char **args)
 
   String buffer =
   {
-    .data  = os_allocate(GB(1), OS_ALLOCATION_COMMIT),
+    .v = os_allocate(GB(1), OS_ALLOCATION_COMMIT),
     .count = GB(1),
   };
 

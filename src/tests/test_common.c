@@ -4,6 +4,53 @@
 int main(int argc, char **argv)
 {
   {
+    const char *label = "MAX";
+    i32 a = 4;
+    i32 b = 5;
+
+    PRINT_EVAL(label, MAX(a, b) == b);
+    PRINT_EVAL(label, MAX(a, 10) != a);
+
+    f32 fa = 4;
+    f32 fb = 5;
+
+    PRINT_EVAL(label, MAX(fa, fb) == fb);
+    PRINT_EVAL(label, MAX(fa, 10.0) != fa);
+  }
+
+  {
+    const char *label = "MIN";
+    i32 a = 4;
+    i32 b = 5;
+
+    PRINT_EVAL(label, MIN(a, b) != b);
+    PRINT_EVAL(label, MIN(a, 10) == a);
+
+    f32 fa = 4;
+    f32 fb = 5;
+
+    PRINT_EVAL(label, MIN(fa, fb) != fb);
+    PRINT_EVAL(label, MIN(fa, 10.0) == fa);
+  }
+
+  {
+    const char *label = "SWAP";
+    i32 a = 4;
+    i32 b = 5;
+
+    SWAP(a, b, i32);
+
+    PRINT_EVAL(label, a == 5);
+    PRINT_EVAL(label, b == 4);
+  }
+
+  {
+    const char *label = "STATIC_COUNT";
+    i32 array[16] = {0};
+    PRINT_EVAL(label, STATIC_COUNT(array) == 16);
+  }
+
+  {
     const char *label = "arena_alloc / arena_make";
     Arena arena = arena_make();
     u8 *mem1 = arena_alloc(&arena, 16, 8);
@@ -35,13 +82,13 @@ int main(int argc, char **argv)
     Arena arena = arena_make();
     i32_Array array = arena_array(&arena, 4, i32);
 
-    array.data[0] = 10;
-    array.data[1] = 20;
-    array.data[2] = 30;
-    array.data[3] = 40;
+    array.v[0] = 10;
+    array.v[1] = 20;
+    array.v[2] = 30;
+    array.v[3] = 40;
 
     PRINT_EVAL(label, array.count == 4);
-    PRINT_EVAL(label, array.data[0] == 10 && array.data[1] == 20 && array.data[2] == 30 && array.data[3] == 40);
+    PRINT_EVAL(label, array.v[0] == 10 && array.v[1] == 20 && array.v[2] == 30 && array.v[3] == 40);
 
     arena_free(&arena);
   }
@@ -58,7 +105,7 @@ int main(int argc, char **argv)
 
     PRINT_EVAL(label, added1 != NULL && added2 != NULL);
     PRINT_EVAL(label, array.count == 2);
-    PRINT_EVAL(label, array.data[0] == 42 && array.data[1] == 17);
+    PRINT_EVAL(label, array.v[0] == 42 && array.v[1] == 17);
 
     arena_free(&arena);
   }
@@ -189,9 +236,9 @@ int main(int argc, char **argv)
     String commas = String("Foo,bar,baz");
     String_Array commas_split = string_split(&arena, commas, String(","));
     b32 result = commas_split.count == 3;
-    result = string_match(commas_split.data[0], String("Foo"));
-    result = string_match(commas_split.data[1], String("bar"));
-    result = string_match(commas_split.data[2], String("baz"));
+    result = string_match(commas_split.v[0], String("Foo"));
+    result = string_match(commas_split.v[1], String("bar"));
+    result = string_match(commas_split.v[2], String("baz"));
     PRINT_EVAL(label, result);
   }
 
@@ -200,9 +247,9 @@ int main(int argc, char **argv)
     String commas = String("Foo, bar, baz");
     String_Array commas_split = string_split(&arena, commas, String(", "));
     b32 result = commas_split.count == 3;
-    result = string_match(commas_split.data[0], String("Foo"));
-    result = string_match(commas_split.data[1], String("bar"));
-    result = string_match(commas_split.data[2], String("baz"));
+    result = string_match(commas_split.v[0], String("Foo"));
+    result = string_match(commas_split.v[1], String("bar"));
+    result = string_match(commas_split.v[2], String("baz"));
     PRINT_EVAL(label, result);
   }
 
@@ -211,9 +258,9 @@ int main(int argc, char **argv)
     String spaces = String("Foo bar baz");
     String_Array space_split = string_split(&arena, spaces, String(" "));
     b32 result = space_split.count == 3;
-    result = string_match(space_split.data[0], String("Foo"));
-    result = string_match(space_split.data[1], String("bar"));
-    result = string_match(space_split.data[2], String("baz"));
+    result = string_match(space_split.v[0], String("Foo"));
+    result = string_match(space_split.v[1], String("bar"));
+    result = string_match(space_split.v[2], String("baz"));
     PRINT_EVAL(label, result);
   }
 
@@ -222,8 +269,8 @@ int main(int argc, char **argv)
     String ws = String("\n Foo  \n\nbar \r baz  \n");
     String_Array ws_split = string_split_whitepace(&arena, ws);
     PRINT_EVAL(label, ws_split.count == 3);
-    PRINT_EVAL(label, string_match(ws_split.data[0], String("Foo")));
-    PRINT_EVAL(label, string_match(ws_split.data[1], String("bar")));
-    PRINT_EVAL(label, string_match(ws_split.data[2], String("baz")));
+    PRINT_EVAL(label, string_match(ws_split.v[0], String("Foo")));
+    PRINT_EVAL(label, string_match(ws_split.v[1], String("bar")));
+    PRINT_EVAL(label, string_match(ws_split.v[2], String("baz")));
   }
 }

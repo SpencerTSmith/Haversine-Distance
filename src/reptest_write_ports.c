@@ -34,7 +34,7 @@ int main(int arg_count, char **args)
     printf("Usage: %s [seconds_to_try_for_min]\n", args[0]);
   }
 
-  u64 count = 1024 * 1024 * 1024;
+  u64 count = GB(1);
 
   u64 cpu_timer_frequency = estimate_cpu_timer_freq();
 

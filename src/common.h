@@ -62,17 +62,22 @@ typedef ptrdiff_t isize;
 #define _STRINGIFY(a) #a
 #define STRINGIFY(a) _STRINGIFY(a)
 
+#define STATEMENT(s) do { s } while (0)
+
 #define CLAMP(value, min, max) (((value) < (min)) ? (min) : ((value) > (max)) ? (max) : (value))
-#define MAX(first, second) ((first) > (second) ? (first) : (second))
-#define MIN(first, second) ((first) > (second) ? (second) : (first))
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+#define MIN(a, b) ((a) > (b) ? (b) : (a))
+
+#define SWAP(a, b, T) STATEMENT( T __t = (a); (a) = (b); (b) = __t; )
 
 #define ALIGN_POW2_UP(x, b) (((x) + (b) - 1) & (~((b) - 1)))
 
 #define PI 3.14159265358979323846
-#define RADIANS(degrees) ((degrees) * (PI / 180))
+#define RADIANS(degrees) ((degrees) * (PI / 180.0))
 
 #define STATIC_ARRAY_COUNT(arr) (sizeof(arr) / sizeof(arr[0]))
-#define STATIC_COUNT(arr)       (sizeof(arr) / sizeof(arr[0]))
+ // Slowly replacing the above with this, shorthand
+#define STATIC_COUNT(arr) STATIC_ARRAY_COUNT(arr)
 
 #define VOID_PROC ((void)0)
 
@@ -87,6 +92,7 @@ typedef ptrdiff_t isize;
 #define NSEC_PER_SEC BILLION(1)
 #define MSEC_PER_SEC THOUSAND(1)
 
+// Only bright colors, please
 #define ANSI_RESET   "\x1b[0m"
 #define ANSI_BLACK   "\x1b[90m"
 #define ANSI_RED     "\x1b[91m"
@@ -107,7 +113,6 @@ typedef ptrdiff_t isize;
 #define ZERO_STRUCT(ptr)     (MEM_SET((ptr), sizeof(*(ptr)), 0))
 #define ZERO_SIZE(ptr, size) (MEM_SET((ptr), (size), 0))
 
-#define STATEMENT(s) do { s } while (0)
 
 #define DEFER_SCOPE(begin, close) \
   for (usize __once__ = (begin, 0); !__once__; __once__++, (close))
@@ -141,7 +146,7 @@ typedef ptrdiff_t isize;
 typedef struct Type##_Array Type##_Array; \
 struct Type##_Array                       \
 {                                         \
-  Type  *data;                            \
+  Type  *v;                            \
   usize count;                            \
 }
 
@@ -344,20 +349,20 @@ void arena_clear(Arena *arena);
 // Useful for structs, much like new in other languages
 #define arena_new(a, T) arena_calloc((a), 1, T)
 
-#define arena_array(a, _count, T) (T##_Array) {.data = arena_calloc((a), (_count), T), .count = (_count)}
+#define arena_array(a, _count, T) (T##_Array) {.v = arena_calloc((a), (_count), T), .count = (_count)}
 
 // NOTE: EVIL! Macro VOODOO... too much? We will see...
 // Only works when building contiguously, IE use a linked list (Type_List), or rethink, if can't guarantee that
 // May add reloaction later... but maybe not
 // Probably also slow than needs to be as we need to go through alloc path for individual elements
 #define array_add(a, array, new)                                                                      \
-  !((array).data) ?                                                                                   \
-((array).data = arena_alloc(a, sizeof((array).data[0]), alignof((array).data[0])),                    \
- (array).data[(array).count++] = new,                                                                 \
- (array).data + (array).count - 1)                                                                    \
-: arena_alloc(a, sizeof((array).data[0]), alignof((array).data[0])) == (array).data + (array).count ? \
-((array).data[(array).count++] = new, (array).data + (array).count - 1)                               \
-: (LOG_ERROR("Tried to add to array in arena noncontiguously!"), arena_pop(a, sizeof((array).data[0])), NULL)
+  !((array).v) ?                                                                                   \
+((array).v = arena_alloc(a, sizeof((array).v[0]), alignof((array).v[0])),                    \
+ (array).v[(array).count++] = new,                                                                 \
+ (array).v + (array).count - 1)                                                                    \
+: arena_alloc(a, sizeof((array).v[0]), alignof((array).v[0])) == (array).v + (array).count ? \
+((array).v[(array).count++] = new, (array).v + (array).count - 1)                               \
+: (LOG_ERROR("Tried to add to array in arena noncontiguously!"), arena_pop(a, sizeof((array).v[0])), NULL)
 
 #define list_push_front(a, list, new) \
   !((list).first) ? \
@@ -381,7 +386,7 @@ void scratch_close(Scratch *scratch);
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #define String(s) (String){(u8 *)(s), STATIC_COUNT(s) - 1}
-#define String_Format(s) (int)(s).count, (s).data
+#define String_Format(s) (int)(s).count, (s).v
 
 b32 char_is_whitespace(u8 c);
 b32 char_is_digit(u8 c);
@@ -508,7 +513,7 @@ String read_file_to_arena(Arena *arena, const char *name)
 
   String result =
   {
-    .data  = buffer,
+    .v = buffer,
     .count = buffer_size,
   };
 
@@ -533,7 +538,7 @@ u32 string_hash_u32(String string)
 
   for (usize i = 0; i < string.count; i++)
   {
-    hash += string.data[i];
+    hash += string.v[i];
     hash += (hash << 10);
     hash ^= (hash >> 6);
   }
@@ -547,7 +552,7 @@ u32 string_hash_u32(String string)
 
 b32 string_match(String a, String b)
 {
-  return a.count == b.count && MEM_MATCH(a.data, b.data, a.count);
+  return a.count == b.count && MEM_MATCH(a.v, b.v, a.count);
 }
 
 b32 string_starts_with(String string, String prefix)
@@ -559,7 +564,7 @@ b32 string_starts_with(String string, String prefix)
   {
     String substring =
     {
-      .data  = string.data,
+      .v = string.v,
       .count = prefix.count,
     };
 
@@ -573,7 +578,7 @@ String string_from_c_string(char *pointer)
 {
   String result =
   {
-    .data  = (u8 *)pointer,
+    .v = (u8 *)pointer,
     .count = 0,
   };
 
@@ -590,7 +595,7 @@ String string_skip(String string, usize count)
   String result = string;
 
   usize clamp = MIN(result.count, count);
-  result.data  += clamp;
+  result.v += clamp;
   result.count -= clamp;
 
   return result;
@@ -613,7 +618,7 @@ String string_trim_whitespace(String string)
   // Eat leading whitespace
   for (; start < string.count; start++)
   {
-    u8 c = string.data[start];
+    u8 c = string.v[start];
     if (!char_is_whitespace(c))
     {
       break;
@@ -622,7 +627,7 @@ String string_trim_whitespace(String string)
 
   for (; stop > start; stop--)
   {
-    u8 c = string.data[stop];
+    u8 c = string.v[stop];
     if (!char_is_whitespace(c))
     {
       break;
@@ -641,7 +646,7 @@ String string_substring(String string, usize start, usize stop)
 
   usize clamp_start = MIN(start, string.count);
   usize clamp_stop  = MIN(stop, string.count);
-  result.data  += clamp_start;
+  result.v += clamp_start;
   result.count = (clamp_stop - clamp_start);
 
   return result;
@@ -657,7 +662,7 @@ usize string_find_substring(String string, usize start, String substring)
   for (usize i = start; i < comparison_count; i++)
   {
     // Only do full check if first char matches
-    if (string.data[i] == substring.data[0])
+    if (string.v[i] == substring.v[0])
     {
       String to_compare = string_substring(string, i, i + substring.count);
 
@@ -697,13 +702,13 @@ String_Array string_split_whitepace(Arena *arena, String string)
   for (usize i = 0; i < string.count;)
   {
     usize start = i;
-    while (start < string.count && char_is_whitespace(string.data[start]))
+    while (start < string.count && char_is_whitespace(string.v[start]))
     {
       start += 1;
     }
 
     usize stop = start;
-    while (stop < string.count && !char_is_whitespace(string.data[stop]))
+    while (stop < string.count && !char_is_whitespace(string.v[stop]))
     {
       stop += 1;
     }
@@ -805,7 +810,7 @@ void os_decommit(void *start, usize size)
 
 b32 os_fill_buffer_random(String buffer)
 {
-  usize result = getrandom(buffer.data, buffer.count, GRND_NONBLOCK); // Probably don't want to block
+  usize result = getrandom(buffer.v, buffer.count, GRND_NONBLOCK); // Probably don't want to block
 
   return result == buffer.count;
 }
@@ -970,7 +975,7 @@ Arg_Option *insert_arg_option(Arena *arena, Args *args, String name, String_Arra
   else
   {
     // Collision
-    if (bucket->name.data)
+    if (bucket->name.v)
     {
       result = arena_new(arena, Arg_Option);
       // Insert at head

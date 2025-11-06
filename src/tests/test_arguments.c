@@ -20,14 +20,14 @@ int main(int argc, char **argv)
   //     Arg_Option *first = arguments.option_table + slot;
   //
   //     // Filled bucket
-  //     if (first->name.data)
+  //     if (first->name.v)
   //     {
   //       for (Arg_Option *node = first; node; node = node->hash_next)
   //       {
   //         printf("Option: %.*s\n", String_Format(node->name));
   //         for (usize i = 0; i < node->values.count; i++)
   //         {
-  //           printf("  Value: %.*s\n", String_Format(node->values.data[i]));
+  //           printf("  Value: %.*s\n", String_Format(node->values.v[i]));
   //         }
   //       }
   //     }
@@ -43,17 +43,17 @@ int main(int argc, char **argv)
   {
     const char *label = "args_get_option_values";
     String_Array values = args_get_option_values(&arguments, String("baz"));
-    PRINT_EVAL(label, string_match(values.data[0], String("foo")));
-    PRINT_EVAL(label, string_match(values.data[1], String("bar")));
-    PRINT_EVAL(label, string_match(values.data[2], String("boo")));
+    PRINT_EVAL(label, string_match(values.v[0], String("foo")));
+    PRINT_EVAL(label, string_match(values.v[1], String("bar")));
+    PRINT_EVAL(label, string_match(values.v[2], String("boo")));
   }
 
   {
     const char *label = "args_get_option_values";
     String_Array values = args_get_option_values(&arguments, String("bunk"));
-    PRINT_EVAL(label, string_match(values.data[0], String("bip")));
-    PRINT_EVAL(label, string_match(values.data[1], String("bop")));
-    PRINT_EVAL(label, string_match(values.data[2], String("bam")));
+    PRINT_EVAL(label, string_match(values.v[0], String("bip")));
+    PRINT_EVAL(label, string_match(values.v[1], String("bop")));
+    PRINT_EVAL(label, string_match(values.v[2], String("bam")));
   }
 
   {

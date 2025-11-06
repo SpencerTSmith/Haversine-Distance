@@ -93,7 +93,7 @@ void fill_buffer_branch_pattern(String buffer, Branch_Pattern pattern)
         break;
       }
 
-      buffer.data[i] = value;
+      buffer.v[i] = value;
     }
   }
 }
@@ -112,7 +112,7 @@ void branch_bytes(Repetition_Tester *tester, Operation_Parameters *params)
   String buffer = params->buffer;
 
   repetition_tester_begin_time(tester);
-  branch_bytes_asm(buffer.count, buffer.data);
+  branch_bytes_asm(buffer.count, buffer.v);
   repetition_tester_close_time(tester);
 
   repetition_tester_count_bytes(tester, buffer.count);
@@ -137,7 +137,7 @@ int main(int arg_count, char **args)
   {
     .buffer =
     {
-      .data  = os_allocate(size, OS_ALLOCATION_COMMIT),
+      .v  = os_allocate(size, OS_ALLOCATION_COMMIT),
       .count = size,
     },
   };
@@ -172,5 +172,5 @@ int main(int arg_count, char **args)
     }
   }
 
-  os_deallocate(params.buffer.data, params.buffer.count);
+  os_deallocate(params.buffer.v, params.buffer.count);
 }

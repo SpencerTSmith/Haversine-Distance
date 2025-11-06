@@ -47,7 +47,7 @@ static
 u8 *parser_at(JSON_Parser *parser)
 {
   ASSERT(parser->at < parser->source.count, "Attempted to read past parser source");
-  return parser->source.data + parser->at;
+  return parser->source.v + parser->at;
 }
 
 // TODO: Use this to peek so don't have to always advance one at a time
@@ -73,7 +73,7 @@ static
 b8 parser_token_is_literal(JSON_Parser *parser, String literal_string)
 {
 
-  return memcmp(parser_at(parser), literal_string.data, literal_string.count) == 0;
+  return memcmp(parser_at(parser), literal_string.v, literal_string.count) == 0;
 }
 
 static
@@ -123,7 +123,7 @@ JSON_Token get_json_token(JSON_Parser *parser)
 
   if (parser_incomplete(parser)) // If we've not reached the end of file
   {
-    token.value.data = parser_at(parser);
+    token.value.v = parser_at(parser);
     switch (*parser_at(parser))
     {
       case '{':
@@ -174,7 +174,7 @@ JSON_Token get_json_token(JSON_Parser *parser)
 
         parser_advance(parser, 1); // For the quotation mark
 
-        token.value.data = parser_at(parser); // Special case, we want the start to ignore the "
+        token.value.v = parser_at(parser); // Special case, we want the start to ignore the "
 
         // TODO: account for escaped quotes
         usize string_count = 0;
@@ -466,7 +466,7 @@ f64 json_object_to_f64(JSON_Object *object)
   usize at = 0;
 
   f64 sign = 1.0;
-  if (val.count > at && val.data[at] == '-')
+  if (val.count > at && val.v[at] == '-')
   {
     sign = -1.0;
     at += 1;
@@ -477,7 +477,7 @@ f64 json_object_to_f64(JSON_Object *object)
   // Before decimal
   while (at < val.count)
   {
-    u8 digit = val.data[at] - (u8)'0';
+    u8 digit = val.v[at] - (u8)'0';
     if (digit < 10)
     {
       // We go left to right so each previous result is 10 times bigger
@@ -491,14 +491,14 @@ f64 json_object_to_f64(JSON_Object *object)
   }
 
   // After decimal (if there)
-  if (at < val.count && val.data[at] == '.')
+  if (at < val.count && val.v[at] == '.')
   {
     at += 1;
 
     f64 factor = 1.0 / 10.0;
     while (at < val.count)
     {
-      u8 digit = val.data[at] - (u8)'0';
+      u8 digit = val.v[at] - (u8)'0';
       if (digit < 10)
       {
         // We go left to right so each additional digit is 10 times smaller

@@ -24,7 +24,7 @@ void read_with_fread(Repetition_Tester *tester, Operation_Parameters *params)
     if (file)
     {
       repetition_tester_begin_time(tester);
-      usize result = fread(params->buffer.data, params->buffer.count, 1, file);
+      usize result = fread(params->buffer.v, params->buffer.count, 1, file);
       repetition_tester_close_time(tester);
 
       if (result == 1)
@@ -55,7 +55,7 @@ void read_with_read(Repetition_Tester *tester, Operation_Parameters *params)
     if (fd != -1)
     {
       repetition_tester_begin_time(tester);
-      usize result = read(fd, params->buffer.data, params->buffer.count);
+      usize result = read(fd, params->buffer.v, params->buffer.count);
       repetition_tester_close_time(tester);
 
       if (result == params->buffer.count)
@@ -95,7 +95,7 @@ int main(int arg_count, char **args)
   usize size = file_size(args[1]);
   String buffer =
   {
-    .data  = os_allocate(size, OS_ALLOCATION_COMMIT|OS_ALLOCATION_PREFAULT),
+    .v = os_allocate(size, OS_ALLOCATION_COMMIT|OS_ALLOCATION_PREFAULT),
     .count = size,
   };
 
@@ -103,7 +103,7 @@ int main(int arg_count, char **args)
   // for (usize i = 0; i < buffer.count; i++)
   // {
   //   volatile u8 write = 0;
-  //   buffer.data[i] = write;
+  //   buffer.v[i] = write;
   // }
 
   Operation_Parameters params =
@@ -131,5 +131,5 @@ int main(int arg_count, char **args)
     }
   }
 
-  free(buffer.data);
+  os_deallocate(buffer.v, buffer.count);
 }

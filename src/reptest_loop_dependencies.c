@@ -14,7 +14,7 @@ struct Operation_Parameters
 static
 void write_all_bytes(Repetition_Tester *tester, Operation_Parameters *params)
 {
-  params->buffer.data = os_allocate(params->buffer.count, OS_ALLOCATION_COMMIT);
+  params->buffer.v = os_allocate(params->buffer.count, OS_ALLOCATION_COMMIT);
 
   while (repetition_tester_is_testing(tester))
   {
@@ -23,17 +23,17 @@ void write_all_bytes(Repetition_Tester *tester, Operation_Parameters *params)
     repetition_tester_begin_time(tester);
     for (usize i = 0; i < buffer.count; i++)
     {
-      buffer.data[i] = (u8)i;
+      buffer.v[i] = (u8)i;
     }
     repetition_tester_close_time(tester);
 
     repetition_tester_count_bytes(tester, buffer.count);
   }
 
-  os_deallocate(params->buffer.data, params->buffer.count);
+  os_deallocate(params->buffer.v, params->buffer.count);
 }
 
-extern void mov_all_bytes_asm(u64 count, u8 *data);
+extern void mov_all_bytes_asm(u64 count, u8 *v);
 extern void nop_all_bytes_asm(u64 count);
 extern void cmp_all_bytes_asm(u64 count);
 extern void dec_all_bytes_asm(u64 count);
@@ -41,26 +41,26 @@ extern void dec_all_bytes_asm(u64 count);
 static
 void mov_all_bytes(Repetition_Tester *tester, Operation_Parameters *params)
 {
-  params->buffer.data = os_allocate(params->buffer.count, OS_ALLOCATION_COMMIT);
+  params->buffer.v = os_allocate(params->buffer.count, OS_ALLOCATION_COMMIT);
 
   while (repetition_tester_is_testing(tester))
   {
     String buffer = params->buffer;
 
     repetition_tester_begin_time(tester);
-    mov_all_bytes_asm(buffer.count, buffer.data);
+    mov_all_bytes_asm(buffer.count, buffer.v);
     repetition_tester_close_time(tester);
 
     repetition_tester_count_bytes(tester, buffer.count);
   }
 
-  os_deallocate(params->buffer.data, params->buffer.count);
+  os_deallocate(params->buffer.v, params->buffer.count);
 }
 
 static
 void nop_all_bytes(Repetition_Tester *tester, Operation_Parameters *params)
 {
-  params->buffer.data = os_allocate(params->buffer.count, OS_ALLOCATION_COMMIT);
+  params->buffer.v = os_allocate(params->buffer.count, OS_ALLOCATION_COMMIT);
 
   while (repetition_tester_is_testing(tester))
   {
@@ -73,13 +73,13 @@ void nop_all_bytes(Repetition_Tester *tester, Operation_Parameters *params)
     repetition_tester_count_bytes(tester, buffer.count);
   }
 
-  os_deallocate(params->buffer.data, params->buffer.count);
+  os_deallocate(params->buffer.v, params->buffer.count);
 }
 
 static
 void cmp_all_bytes(Repetition_Tester *tester, Operation_Parameters *params)
 {
-  params->buffer.data = os_allocate(params->buffer.count, OS_ALLOCATION_COMMIT);
+  params->buffer.v = os_allocate(params->buffer.count, OS_ALLOCATION_COMMIT);
 
   while (repetition_tester_is_testing(tester))
   {
@@ -92,13 +92,13 @@ void cmp_all_bytes(Repetition_Tester *tester, Operation_Parameters *params)
     repetition_tester_count_bytes(tester, buffer.count);
   }
 
-  os_deallocate(params->buffer.data, params->buffer.count);
+  os_deallocate(params->buffer.v, params->buffer.count);
 }
 
 static
 void dec_all_bytes(Repetition_Tester *tester, Operation_Parameters *params)
 {
-  params->buffer.data = os_allocate(params->buffer.count, OS_ALLOCATION_COMMIT);
+  params->buffer.v = os_allocate(params->buffer.count, OS_ALLOCATION_COMMIT);
 
   while (repetition_tester_is_testing(tester))
   {
@@ -111,7 +111,7 @@ void dec_all_bytes(Repetition_Tester *tester, Operation_Parameters *params)
     repetition_tester_count_bytes(tester, buffer.count);
   }
 
-  os_deallocate(params->buffer.data, params->buffer.count);
+  os_deallocate(params->buffer.v, params->buffer.count);
 }
 
 Operation_Entry test_entries[] =
@@ -133,7 +133,7 @@ int main(int arg_count, char **args)
   usize size = GB(1);
   String buffer =
   {
-    .data  = os_allocate(size, OS_ALLOCATION_COMMIT),
+    .v = os_allocate(size, OS_ALLOCATION_COMMIT),
     .count = size,
   };
 

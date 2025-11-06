@@ -83,8 +83,8 @@ int main(int args_count, char **args)
     String solution_dump = read_file_to_arena(&arena, args[2]);
     if (solution_dump.count >= sizeof(f64) + sizeof(i32))
     {
-      f64 solution_sum = *(f64 *)solution_dump.data;
-      usize solution_pairs = *(usize *)(solution_dump.data + sizeof(f64));
+      f64 solution_sum = *(f64 *)solution_dump.v;
+      usize solution_pairs = *(usize *)(solution_dump.v + sizeof(f64));
 
       if (solution_pairs == pair_count)
       {

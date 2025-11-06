@@ -14,7 +14,7 @@ struct Operation_Parameters
 static
 void write_all_bytes_no_malloc(Repetition_Tester *tester, Operation_Parameters *params)
 {
-  params->buffer.data = os_allocate(params->buffer.count, OS_ALLOCATION_COMMIT);
+  params->buffer.v = os_allocate(params->buffer.count, OS_ALLOCATION_COMMIT);
 
   while (repetition_tester_is_testing(tester))
   {
@@ -23,14 +23,14 @@ void write_all_bytes_no_malloc(Repetition_Tester *tester, Operation_Parameters *
     repetition_tester_begin_time(tester);
     for (usize i = 0; i < buffer.count; i++)
     {
-      buffer.data[i] = (u8)i;
+      buffer.v[i] = (u8)i;
     }
     repetition_tester_close_time(tester);
 
     repetition_tester_count_bytes(tester, buffer.count);
   }
 
-  os_deallocate(params->buffer.data, params->buffer.count);
+  os_deallocate(params->buffer.v, params->buffer.count);
 }
 
 static
@@ -38,20 +38,20 @@ void write_all_bytes_malloc(Repetition_Tester *tester, Operation_Parameters *par
 {
   while (repetition_tester_is_testing(tester))
   {
-    params->buffer.data = os_allocate(params->buffer.count, OS_ALLOCATION_COMMIT);
+    params->buffer.v = os_allocate(params->buffer.count, OS_ALLOCATION_COMMIT);
 
     String buffer = params->buffer;
 
     repetition_tester_begin_time(tester);
     for (usize i = 0; i < buffer.count; i++)
     {
-      buffer.data[i] = (u8)i;
+      buffer.v[i] = (u8)i;
     }
     repetition_tester_close_time(tester);
 
     repetition_tester_count_bytes(tester, buffer.count);
 
-    os_deallocate(params->buffer.data, params->buffer.count);
+    os_deallocate(params->buffer.v, params->buffer.count);
   }
 }
 
@@ -71,7 +71,7 @@ int main(int arg_count, char **args)
   usize size = GB(1);
   String buffer =
   {
-    .data  = malloc(size),
+    .v = malloc(size),
     .count = size,
   };
 
