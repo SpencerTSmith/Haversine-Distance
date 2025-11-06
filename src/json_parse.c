@@ -105,6 +105,7 @@ b32 is_numeric(u8 ch)
   return result;
 }
 
+static
 JSON_Token get_json_token(JSON_Parser *parser)
 {
   JSON_Token token = {0};
@@ -270,6 +271,7 @@ JSON_Token get_json_token(JSON_Parser *parser)
   return token;
 }
 
+static
 b32 json_token_type_is_value_type(JSON_Token_Type type)
 {
   b32 is_value_type = (type == JSON_TOKEN_STRING ||
@@ -454,6 +456,7 @@ JSON_Object *lookup_json_object(JSON_Object *current, String key)
   return result;
 }
 
+static
 f64 json_object_to_f64(JSON_Object *object)
 {
   ASSERT(object, "Must pass valid object to f64 conversion");

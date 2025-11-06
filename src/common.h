@@ -133,12 +133,6 @@ typedef ptrdiff_t isize;
          ANSI_GREEN "PASS :)" ANSI_RESET        : \
          ANSI_RED "FAIL :( @" __FILE__":" STRINGIFY(__LINE__)"\n" "  Expression: " #expr ANSI_RESET)
 
-// Only useful if you know exactly how big the file is ahead of time, otherwise probably put on an arena if don't know...
-// or use file_size()
-usize read_file_to_memory(const char *name, u8 *buffer, usize buffer_size);
-
-usize file_size(const char *name);
-
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // ARRAY MACRO
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -175,6 +169,25 @@ DEFINE_ARRAY(isize);
 // No null terminated strings, please
 typedef u8_Array String;
 DEFINE_ARRAY(String);
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// LIST MACRO
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#define DEFINE_LIST(Type)               \
+typedef struct Type##_Node Type##_Node; \
+struct Type##_Node                      \
+{                                       \
+  Type##_Node *link_next;               \
+  Type        *value;                   \
+};                                      \
+typedef struct Type##_List Type##_List; \
+struct Type##_List                      \
+{                                       \
+  Type##_Node *first;                   \
+  Type##_Node *last;                    \
+  usize count;                          \
+}
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // LOGGING
@@ -328,25 +341,28 @@ void arena_clear(Arena *arena);
 
 // specify the arena, the number of elements, and the type... c(ounted)alloc
 #define arena_calloc(a, count, T) (T *)arena_alloc((a), sizeof(T) * (count), alignof(T))
+// Useful for structs, much like new in other languages
+#define arena_new(a, T) arena_calloc((a), 1, T)
 
 #define arena_array(a, _count, T) (T##_Array) {.data = arena_calloc((a), (_count), T), .count = (_count)}
 
 // NOTE: EVIL! Macro VOODOO... too much? We will see...
-// Only works when building contiguously, IE use a linked list if can't guarantee that
+// Only works when building contiguously, IE use a linked list (Type_List), or rethink, if can't guarantee that
 // May add reloaction later... but maybe not
 // Probably also slow than needs to be as we need to go through alloc path for individual elements
-#define array_add(a, array, new)                                                                          \
-    !((array).data) ?                                                                                     \
-      ((array).data = arena_alloc(a, sizeof((array).data[0]), alignof((array).data[0])),                  \
-       (array).data[(array).count++] = new,                                                               \
-       &(array).data[(array).count - 1])                                                                  \
-    : arena_alloc(a, sizeof((array).data[0]), alignof((array).data[0])) == (array).data + (array).count ? \
-      ((array).data[(array).count++] = new, &(array).data[(array).count - 1])                             \
-    : (LOG_ERROR("Tried to add to array in arena noncontiguously!"), arena_pop(a, sizeof((array).data[0])), NULL)
+#define array_add(a, array, new)                                                                      \
+  !((array).data) ?                                                                                   \
+((array).data = arena_alloc(a, sizeof((array).data[0]), alignof((array).data[0])),                    \
+ (array).data[(array).count++] = new,                                                                 \
+ (array).data + (array).count - 1)                                                                    \
+: arena_alloc(a, sizeof((array).data[0]), alignof((array).data[0])) == (array).data + (array).count ? \
+((array).data[(array).count++] = new, (array).data + (array).count - 1)                               \
+: (LOG_ERROR("Tried to add to array in arena noncontiguously!"), arena_pop(a, sizeof((array).data[0])), NULL)
 
+#define list_push_front(a, list, new) \
+  !((list).first) ? \
+    ((list).first = arena_alloc(a, sizeof(*(list).first), alignof(*(list).first))))     \
 
-// Useful for structs, much like new in other languages
-#define arena_new(a, T) arena_calloc((a), 1, T)
 
 // We just want some temporary memory
 // ie we save the offset we wish to return to after using this arena as a scratch pad
@@ -369,6 +385,7 @@ void scratch_close(Scratch *scratch);
 
 b32 char_is_whitespace(u8 c);
 b32 char_is_digit(u8 c);
+b32 char_is_alphabetic(u8 c);
 
 u32 string_hash_u32(String string);
 b32 string_match(String a, String b);
@@ -386,6 +403,11 @@ String string_from_c_string(char *pointer);
 
 String_Array string_split(Arena *arena, String string, String delimiter);
 String_Array string_split_whitepace(Arena *arena, String string);
+
+// Only useful if you know exactly how big the file is ahead of time, otherwise probably put on an arena if don't know...
+// or use file_size()
+usize read_file_to_memory(const char *name, u8 *buffer, usize buffer_size);
+usize file_size(const char *name);
 
 // Reads the entire thing and returns a String (just a byte slice)
 String read_file_to_arena(Arena *arena, const char *name);
@@ -435,7 +457,7 @@ String_Array args_get_option_values(Args *table, String option);
 // IMPLEMENT
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-#define COMMON_IMPLEMENTATION
+// #define COMMON_IMPLEMENTATION
 #ifdef COMMON_IMPLEMENTATION
 // Returns size of file, or 0 if it can't open the file
 usize read_file_to_memory(const char *name, u8 *buffer, usize buffer_size)
