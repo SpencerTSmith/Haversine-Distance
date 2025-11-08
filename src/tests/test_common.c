@@ -134,8 +134,123 @@ int main(int argc, char **argv)
     PRINT_EVAL(label, added1 != NULL && added2 != NULL);
     PRINT_EVAL(label, array.count == 2);
     PRINT_EVAL(label, array.v[0] == 42 && array.v[1] == 17);
+    PRINT_EVAL(label, *added1 == 42 && *added2 == 17);
 
     arena_free(&arena);
+  }
+
+  {
+    const char *label = "SLL_push_first";
+
+    i32_List list = {0};
+
+    i32_Node *ptr = NULL;
+
+    i32_Node val1 = {NULL, 42};
+    i32_Node val2 = {NULL, 17};
+    i32_Node val3 = {NULL, 10};
+
+    ptr = SLL_push_first(list.first, list.last, &val1, link_next);
+    PRINT_EVAL(label, list.first->value == 42);
+    PRINT_EVAL(label, list.last->value == 42);
+    PRINT_EVAL(label, ptr->value == 42);
+
+    ptr = SLL_push_first(list.first, list.last, &val2, link_next);
+    PRINT_EVAL(label, list.first->value == 17);
+    PRINT_EVAL(label, list.last->value == 42);
+    PRINT_EVAL(label, ptr->value == 17);
+
+    ptr = SLL_push_first(list.first, list.last, &val3, link_next);
+    PRINT_EVAL(label, list.first->value == 10);
+    PRINT_EVAL(label, list.last->value == 42);
+    PRINT_EVAL(label, ptr->value == 10);
+  }
+
+  {
+    const char *label = "SLL_push_last";
+
+    i32_List list = {0};
+
+    i32_Node *ptr = NULL;
+
+    i32_Node val1 = {NULL, 42};
+    i32_Node val2 = {NULL, 17};
+    i32_Node val3 = {NULL, 10};
+
+    ptr = SLL_push_last(list.first, list.last, &val1, link_next);
+    PRINT_EVAL(label, list.first->value == 42);
+    PRINT_EVAL(label, list.last->value == 42);
+    PRINT_EVAL(label, ptr->value == 42);
+
+    ptr = SLL_push_last(list.first, list.last, &val2, link_next);
+    PRINT_EVAL(label, list.first->value == 42);
+    PRINT_EVAL(label, list.last->value == 17);
+    PRINT_EVAL(label, ptr->value == 17);
+
+    ptr = SLL_push_last(list.first, list.last, &val3, link_next);
+    PRINT_EVAL(label, list.first->value == 42);
+    PRINT_EVAL(label, list.last->value == 10);
+    PRINT_EVAL(label, ptr->value == 10);
+  }
+
+  {
+    const char *label = "list_push_first";
+
+    i32_List list = {0};
+
+    i32_Node *ptr = NULL;
+
+    i32_Node val1 = {NULL, 42};
+    i32_Node val2 = {NULL, 17};
+    i32_Node val3 = {NULL, 10};
+
+    ptr = list_push_first(list, &val1);
+    PRINT_EVAL(label, list.first->value == 42);
+    PRINT_EVAL(label, list.last->value == 42);
+    PRINT_EVAL(label, ptr->value == 42);
+    PRINT_EVAL(label, list.count == 1);
+
+    ptr = list_push_first(list, &val2);
+    PRINT_EVAL(label, list.first->value == 17);
+    PRINT_EVAL(label, list.last->value == 42);
+    PRINT_EVAL(label, ptr->value == 17);
+    PRINT_EVAL(label, list.count == 2);
+
+    ptr = list_push_first(list, &val3);
+    PRINT_EVAL(label, list.first->value == 10);
+    PRINT_EVAL(label, list.last->value == 42);
+    PRINT_EVAL(label, ptr->value == 10);
+    PRINT_EVAL(label, list.count == 3);
+  }
+
+  {
+    const char *label = "list_push_last";
+
+    i32_List list = {0};
+
+    i32_Node *ptr = NULL;
+
+    i32_Node val1 = {NULL, 42};
+    i32_Node val2 = {NULL, 17};
+    i32_Node val3 = {NULL, 10};
+
+    ptr = list_push_last(list, &val1);
+    PRINT_EVAL(label, list.first->value == 42);
+    PRINT_EVAL(label, list.last->value == 42);
+    PRINT_EVAL(label, ptr->value == 42);
+    PRINT_EVAL(label, list.count == 1);
+
+    ptr = list_push_last(list, &val2);
+    PRINT_EVAL(label, list.first->value == 42);
+    PRINT_EVAL(label, list.last->value == 17);
+    PRINT_EVAL(label, ptr->value == 17);
+    PRINT_EVAL(label, list.count == 2);
+
+    ptr = list_push_last(list, &val3);
+    PRINT_EVAL(label, list.first->value == 42);
+    PRINT_EVAL(label, list.last->value == 10);
+    PRINT_EVAL(label, ptr->value == 10);
+    PRINT_EVAL(label, list.count == 3);
   }
 
   {
@@ -216,6 +331,22 @@ int main(int argc, char **argv)
   }
 
   {
+    const char *label = "string_from_c_string";
+    char *c_string = "I'm null-terminated";
+    String string = string_from_c_string(c_string);
+    PRINT_EVAL(label, string.count == strlen(c_string));
+    PRINT_EVAL(label, MEM_MATCH(c_string, string.v, string.count));
+  }
+
+  {
+    const char *label = "string_to_c_string";
+    String string = String("I'm NOT null-terminated");
+    char *c_string = string_to_c_string(&arena, string);
+    PRINT_EVAL(label, string.count == strlen(c_string));
+    PRINT_EVAL(label, MEM_MATCH(c_string, string.v, string.count));
+  }
+
+  {
     const char *label = "string_skip";
     String string = String("Skipper");
     PRINT_EVAL(label, string_match(string_skip(string, 1), String("kipper")));
@@ -263,33 +394,30 @@ int main(int argc, char **argv)
     const char *label = "string_split";
     String commas = String("Foo,bar,baz");
     String_Array commas_split = string_split(&arena, commas, String(","));
-    b32 result = commas_split.count == 3;
-    result = string_match(commas_split.v[0], String("Foo"));
-    result = string_match(commas_split.v[1], String("bar"));
-    result = string_match(commas_split.v[2], String("baz"));
-    PRINT_EVAL(label, result);
-  }
-
-  {
-    const char *label = "string_split";
-    String commas = String("Foo, bar, baz");
-    String_Array commas_split = string_split(&arena, commas, String(", "));
-    b32 result = commas_split.count == 3;
-    result = string_match(commas_split.v[0], String("Foo"));
-    result = string_match(commas_split.v[1], String("bar"));
-    result = string_match(commas_split.v[2], String("baz"));
-    PRINT_EVAL(label, result);
+    PRINT_EVAL(label, commas_split.count == 3);
+    PRINT_EVAL(label, string_match(commas_split.v[0], String("Foo")));
+    PRINT_EVAL(label, string_match(commas_split.v[1], String("bar")));
+    PRINT_EVAL(label, string_match(commas_split.v[2], String("baz")));
   }
 
   {
     const char *label = "string_split";
     String spaces = String("Foo bar baz");
     String_Array space_split = string_split(&arena, spaces, String(" "));
-    b32 result = space_split.count == 3;
-    result = string_match(space_split.v[0], String("Foo"));
-    result = string_match(space_split.v[1], String("bar"));
-    result = string_match(space_split.v[2], String("baz"));
-    PRINT_EVAL(label, result);
+    PRINT_EVAL(label, space_split.count == 3);
+    PRINT_EVAL(label, string_match(space_split.v[0], String("Foo")));
+    PRINT_EVAL(label, string_match(space_split.v[1], String("bar")));
+    PRINT_EVAL(label, string_match(space_split.v[2], String("baz")));
+  }
+
+  {
+    const char *label = "string_split";
+    String lines = String("\nFoo\nbar\nbaz");
+    String_Array line_split = string_split(&arena, lines, String("\n"));
+    PRINT_EVAL(label, line_split.count == 4);
+    PRINT_EVAL(label, string_match(line_split.v[1], String("Foo")));
+    PRINT_EVAL(label, string_match(line_split.v[2], String("bar")));
+    PRINT_EVAL(label, string_match(line_split.v[3], String("baz")));
   }
 
   {

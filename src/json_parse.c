@@ -72,37 +72,13 @@ b8 parser_incomplete(JSON_Parser *parser)
 static
 b8 parser_token_is_literal(JSON_Parser *parser, String literal_string)
 {
-
-  return memcmp(parser_at(parser), literal_string.v, literal_string.count) == 0;
+  return MEM_MATCH(parser_at(parser), literal_string.v, literal_string.count);
 }
 
 static
 b32 is_numeric(u8 ch)
 {
-  b32 result = false;
-
-  switch (ch)
-  {
-    case '0':
-    case '1':
-    case '2':
-    case '3':
-    case '4':
-    case '5':
-    case '6':
-    case '7':
-    case '8':
-    case '9':
-    case '.':
-    case '-':
-    {
-      result = true;
-    }
-    break;
-  }
-
-
-  return result;
+  return char_is_digit(ch) || ch == '.' || ch == '-';
 }
 
 static

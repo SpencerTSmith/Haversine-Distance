@@ -1,9 +1,9 @@
 #define LOG_TITLE "REPETITION_TESTER"
 #define COMMON_IMPLEMENTATION
-#include "common.h"
+#include "../common.h"
 
-#include "benchmark/benchmark_inc.h"
-#include "benchmark/benchmark_inc.c"
+#include "../benchmark/benchmark_inc.h"
+#include "../benchmark/benchmark_inc.c"
 
 #include <fcntl.h>
 #include <unistd.h>

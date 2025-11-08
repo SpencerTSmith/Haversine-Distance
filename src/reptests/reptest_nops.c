@@ -1,9 +1,9 @@
 #define LOG_TITLE "REPETITION_TESTER"
 #define COMMON_IMPLEMENTATION
-#include "common.h"
+#include "../common.h"
 
-#include "benchmark/benchmark_inc.h"
-#include "benchmark/benchmark_inc.c"
+#include "../benchmark/benchmark_inc.h"
+#include "../benchmark/benchmark_inc.c"
 
 typedef struct Operation_Parameters Operation_Parameters;
 struct Operation_Parameters
@@ -11,14 +11,13 @@ struct Operation_Parameters
   String buffer;
 };
 
-extern void nop_aligned64_asm(u64 count);
-extern void nop_aligned1_asm(u64 count);
-extern void nop_aligned15_asm(u64 count);
-extern void nop_aligned31_asm(u64 count);
-extern void nop_aligned63_asm(u64 count);
+extern void nop1x3_all_bytes_asm(u64 count);
+extern void nop3x1_all_bytes_asm(u64 count);
+extern void nop9x1_all_bytes_asm(u64 count);
+extern void nop32x1_all_bytes_asm(u64 count);
 
 static
-void nop_aligned64(Repetition_Tester *tester, Operation_Parameters *params)
+void nop1x3_all_bytes(Repetition_Tester *tester, Operation_Parameters *params)
 {
   params->buffer.v = os_allocate(params->buffer.count, OS_ALLOCATION_COMMIT);
 
@@ -27,7 +26,7 @@ void nop_aligned64(Repetition_Tester *tester, Operation_Parameters *params)
     String buffer = params->buffer;
 
     repetition_tester_begin_time(tester);
-    nop_aligned64_asm(buffer.count);
+    nop1x3_all_bytes_asm(buffer.count);
     repetition_tester_close_time(tester);
 
     repetition_tester_count_bytes(tester, buffer.count);
@@ -37,7 +36,7 @@ void nop_aligned64(Repetition_Tester *tester, Operation_Parameters *params)
 }
 
 static
-void nop_aligned1(Repetition_Tester *tester, Operation_Parameters *params)
+void nop3x1_all_bytes(Repetition_Tester *tester, Operation_Parameters *params)
 {
   params->buffer.v = os_allocate(params->buffer.count, OS_ALLOCATION_COMMIT);
 
@@ -46,7 +45,7 @@ void nop_aligned1(Repetition_Tester *tester, Operation_Parameters *params)
     String buffer = params->buffer;
 
     repetition_tester_begin_time(tester);
-    nop_aligned1_asm(buffer.count);
+    nop3x1_all_bytes_asm(buffer.count);
     repetition_tester_close_time(tester);
 
     repetition_tester_count_bytes(tester, buffer.count);
@@ -56,7 +55,7 @@ void nop_aligned1(Repetition_Tester *tester, Operation_Parameters *params)
 }
 
 static
-void nop_aligned15(Repetition_Tester *tester, Operation_Parameters *params)
+void nop9x1_all_bytes(Repetition_Tester *tester, Operation_Parameters *params)
 {
   params->buffer.v = os_allocate(params->buffer.count, OS_ALLOCATION_COMMIT);
 
@@ -65,7 +64,7 @@ void nop_aligned15(Repetition_Tester *tester, Operation_Parameters *params)
     String buffer = params->buffer;
 
     repetition_tester_begin_time(tester);
-    nop_aligned15_asm(buffer.count);
+    nop3x1_all_bytes_asm(buffer.count);
     repetition_tester_close_time(tester);
 
     repetition_tester_count_bytes(tester, buffer.count);
@@ -75,7 +74,7 @@ void nop_aligned15(Repetition_Tester *tester, Operation_Parameters *params)
 }
 
 static
-void nop_aligned31(Repetition_Tester *tester, Operation_Parameters *params)
+void nop32x1_all_bytes(Repetition_Tester *tester, Operation_Parameters *params)
 {
   params->buffer.v = os_allocate(params->buffer.count, OS_ALLOCATION_COMMIT);
 
@@ -84,26 +83,7 @@ void nop_aligned31(Repetition_Tester *tester, Operation_Parameters *params)
     String buffer = params->buffer;
 
     repetition_tester_begin_time(tester);
-    nop_aligned31_asm(buffer.count);
-    repetition_tester_close_time(tester);
-
-    repetition_tester_count_bytes(tester, buffer.count);
-  }
-
-  os_deallocate(params->buffer.v, params->buffer.count);
-}
-
-static
-void nop_aligned63(Repetition_Tester *tester, Operation_Parameters *params)
-{
-  params->buffer.v = os_allocate(params->buffer.count, OS_ALLOCATION_COMMIT);
-
-  while (repetition_tester_is_testing(tester))
-  {
-    String buffer = params->buffer;
-
-    repetition_tester_begin_time(tester);
-    nop_aligned63_asm(buffer.count);
+    nop32x1_all_bytes_asm(buffer.count);
     repetition_tester_close_time(tester);
 
     repetition_tester_count_bytes(tester, buffer.count);
@@ -114,11 +94,10 @@ void nop_aligned63(Repetition_Tester *tester, Operation_Parameters *params)
 
 Operation_Entry test_entries[] =
 {
-  {String("aligned 64"), nop_aligned64},
-  {String("aligned 1"),  nop_aligned1},
-  {String("aligned 15"), nop_aligned15},
-  {String("aligned 31"), nop_aligned31},
-  {String("aligned 63"), nop_aligned63},
+  {String("1x3"),  nop1x3_all_bytes},
+  {String("3x1"),  nop3x1_all_bytes},
+  {String("9x1"),  nop9x1_all_bytes},
+  {String("32x1"), nop32x1_all_bytes},
 };
 
 int main(int arg_count, char **args)
@@ -128,10 +107,11 @@ int main(int arg_count, char **args)
     printf("Usage: %s [seconds_to_try_for_min]\n", args[0]);
   }
 
+  usize size = GB(1);
   String buffer =
   {
-    .v = os_allocate(GB(1), OS_ALLOCATION_COMMIT),
-    .count = GB(1),
+    .v = os_allocate(size, OS_ALLOCATION_COMMIT),
+    .count = size,
   };
 
   Operation_Parameters params =
@@ -154,7 +134,7 @@ int main(int arg_count, char **args)
 
       printf("\n--- %.*s ---\n", String_Format(entry->name));
       printf("                                                          \r");
-      repetition_tester_new_wave(tester, buffer.count, cpu_timer_frequency, seconds_to_try_for_min);
+      repetition_tester_new_wave(tester, size, cpu_timer_frequency, seconds_to_try_for_min);
 
       entry->function(tester, &params);
     }

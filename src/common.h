@@ -105,14 +105,15 @@ typedef ptrdiff_t isize;
 
 #include <string.h>
 
-#define MEM_SET(ptr, size, value) (memset((ptr), value, (size)))
-#define MEM_COPY(dst, src, size)  (memcpy((dst), (ptr), (size)))
+#define MEM_SET(ptr, size, value) (memset((ptr), (value), (size)))
+#define MEM_COPY(dst, src, size)  (memcpy((dst), (src), (size)))
 #define MEM_MOVE(dst, src, size)  (memmove((dst), (src), (size)))
 #define MEM_MATCH(a, b, size)     (memcmp((a), (b), (size)) == 0)
 
 #define ZERO_STRUCT(ptr)     (MEM_SET((ptr), sizeof(*(ptr)), 0))
 #define ZERO_SIZE(ptr, size) (MEM_SET((ptr), (size), 0))
 
+#define EACH_INDEX(it, count) (usize it = 0; it < (count); it += 1)
 
 #define DEFER_SCOPE(begin, close) \
   for (usize __once__ = (begin, 0); !__once__; __once__++, (close))
@@ -184,7 +185,7 @@ typedef struct Type##_Node Type##_Node; \
 struct Type##_Node                      \
 {                                       \
   Type##_Node *link_next;               \
-  Type        *value;                   \
+  Type        value;                    \
 };                                      \
 typedef struct Type##_List Type##_List; \
 struct Type##_List                      \
@@ -193,6 +194,29 @@ struct Type##_List                      \
   Type##_Node *last;                    \
   usize count;                          \
 }
+
+DEFINE_LIST(i64);
+DEFINE_LIST(i32);
+DEFINE_LIST(i16);
+DEFINE_LIST(i8);
+
+DEFINE_LIST(u64);
+DEFINE_LIST(u32);
+DEFINE_LIST(u16);
+DEFINE_LIST(u8);
+
+DEFINE_LIST(b64);
+DEFINE_LIST(b32);
+DEFINE_LIST(b16);
+DEFINE_LIST(b8);
+
+DEFINE_LIST(f64);
+DEFINE_LIST(f32);
+
+DEFINE_LIST(usize);
+DEFINE_LIST(isize);
+
+DEFINE_LIST(String);
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // LOGGING
@@ -265,7 +289,6 @@ void log_message(Log_Level level, const char *file, usize line, const char *mess
 
 typedef enum OS_Allocation_Flags
 {
-  OS_ALLOCATION_NONE      = 0,
   OS_ALLOCATION_COMMIT    = (1 << 0),
   OS_ALLOCATION_2MB_PAGES = (1 << 1),
   OS_ALLOCATION_1GB_PAGES = (1 << 2),
@@ -344,10 +367,14 @@ void arena_clear(Arena *arena);
 
 #include <stdalign.h>
 
+// Arena Helpers ---
+
 // specify the arena, the number of elements, and the type... c(ounted)alloc
 #define arena_calloc(a, count, T) (T *)arena_alloc((a), sizeof(T) * (count), alignof(T))
 // Useful for structs, much like new in other languages
 #define arena_new(a, T) arena_calloc((a), 1, T)
+
+// Array Helpers ---
 
 #define arena_array(a, _count, T) (T##_Array) {.v = arena_calloc((a), (_count), T), .count = (_count)}
 
@@ -355,19 +382,34 @@ void arena_clear(Arena *arena);
 // Only works when building contiguously, IE use a linked list (Type_List), or rethink, if can't guarantee that
 // May add reloaction later... but maybe not
 // Probably also slow than needs to be as we need to go through alloc path for individual elements
-#define array_add(a, array, new)                                                                      \
-  !((array).v) ?                                                                                   \
-((array).v = arena_alloc(a, sizeof((array).v[0]), alignof((array).v[0])),                    \
- (array).v[(array).count++] = new,                                                                 \
- (array).v + (array).count - 1)                                                                    \
-: arena_alloc(a, sizeof((array).v[0]), alignof((array).v[0])) == (array).v + (array).count ? \
-((array).v[(array).count++] = new, (array).v + (array).count - 1)                               \
-: (LOG_ERROR("Tried to add to array in arena noncontiguously!"), arena_pop(a, sizeof((array).v[0])), NULL)
+#define array_add(a, array, new)                                                                 \
+  !((array).v) ?                                                                                 \
+    ((array).v = arena_alloc((a), sizeof((array).v[0]), alignof((array).v[0])),                  \
+     (array).v[(array).count++] = (new),                                                         \
+     (array).v + (array).count - 1)                                                              \
+  : arena_alloc((a), sizeof((array).v[0]), alignof((array).v[0])) == (array).v + (array).count ? \
+    ((array).v[(array).count++] = (new), (array).v + (array).count - 1)                          \
+  : (LOG_ERROR("Tried to add to array in arena noncontiguously!"), arena_pop(a, sizeof((array).v[0])), NULL)
 
-#define list_push_front(a, list, new) \
-  !((list).first) ? \
-    ((list).first = arena_alloc(a, sizeof(*(list).first), alignof(*(list).first))))     \
+// Linked list Helpers ---
 
+// More generic helpers: first, last, new are all pointers, while next is the name of
+// the next link member variable
+// NOTE: These are expressions and therefore they will evaluate to a pointer to the node
+// that has been pushed
+#define SLL_push_first(first, last, new_node, next)                  \
+  !(first) ? ((new_node)->next = 0, (first) = (last) = (new_node)) : \
+   ((new_node)->next = (first), (first) = (new_node))
+#define SLL_push_last(first, last, new_node, next)                   \
+  !(first) ? ((new_node)->next = 0, (first) = (last) = (new_node)) : \
+   ((last)->next = (new_node), (new_node)->next = 0, (last) = (new_node))
+
+// Helpers specific to the DEFINE_LIST() structures, that is, they assume the naming
+// scheme and also increment the count
+#define list_push_first(list, new_node) \
+  ((list).count += 1, SLL_push_first((list).first, (list).last, new_node, link_next))
+#define list_push_last(list, new_node) \
+  ((list).count += 1, SLL_push_last((list).first, (list).last, new_node, link_next))
 
 // We just want some temporary memory
 // ie we save the offset we wish to return to after using this arena as a scratch pad
@@ -405,6 +447,7 @@ String string_substring(String string, usize start, usize close);
 usize string_find_substring(String string, usize start, String substring);
 
 String string_from_c_string(char *pointer);
+char *string_to_c_string(Arena *arena, String string);
 
 String_Array string_split(Arena *arena, String string, String delimiter);
 String_Array string_split_whitepace(Arena *arena, String string);
@@ -432,8 +475,8 @@ struct Arg_Option
   String_Array values;
 };
 
-typedef struct Argument_Table Args;
-struct Argument_Table
+typedef struct Args Args;
+struct Args
 {
   String program_name;
 
@@ -485,16 +528,28 @@ usize read_file_to_memory(const char *name, u8 *buffer, usize buffer_size)
 
 usize file_size(const char *name)
 {
+  usize size = 0;
+  b32 success = 0;
+
   // Seriously???
-#if _WIN32
+#if OS_WINDOWS
   struct __stat64 stats;
-  _stat64(name, &stats);
+  success = _stat64(name, &stats) == 0;
 #else
   struct stat stats;
-  stat(name, &stats);
+  success = stat(name, &stats) == 0;
 #endif
 
-  return stats.st_size;
+  if (success)
+  {
+    size = stats.st_size;
+  }
+  else
+  {
+    LOG_ERROR("Unable to determine file size of '%s'", name);
+  }
+
+  return size;
 }
 
 String read_file_to_arena(Arena *arena, const char *name)
@@ -586,6 +641,14 @@ String string_from_c_string(char *pointer)
   {
     result.count += 1;
   }
+
+  return result;
+}
+
+char *string_to_c_string(Arena *arena, String string)
+{
+  char *result = arena_calloc(arena, string.count + 1, char);
+  MEM_COPY(result, string.v, string.count);
 
   return result;
 }
@@ -683,7 +746,7 @@ String_Array string_split(Arena *arena, String string, String delimiter)
 
   usize start = 0;
   for (usize delimiter_idx = string_find_substring(string, 0, delimiter);
-       delimiter_idx <= string.count && start < delimiter_idx;
+       delimiter_idx <= string.count && start <= delimiter_idx;
        delimiter_idx = string_find_substring(string, start, delimiter))
   {
     String substring = string_substring(string, start, delimiter_idx);
@@ -829,7 +892,7 @@ Arena __arena_make(Arena_Args *args)
 
   Arena arena = {0};
 
-  arena.base = (u8 *)os_allocate(res, OS_ALLOCATION_NONE);
+  arena.base = (u8 *)os_allocate(res, 0);
 
   // Maybe we do something more gracefully, as this won't be compiled in when DEBUG not defined
   ASSERT(arena.base, "Failed to allocate arena memory (%.*s:%ld)",

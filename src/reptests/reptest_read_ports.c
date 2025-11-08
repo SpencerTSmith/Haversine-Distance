@@ -1,9 +1,9 @@
 #define LOG_TITLE "REPETITION_TESTER"
 #define COMMON_IMPLEMENTATION
-#include "common.h"
+#include "../common.h"
 
-#include "benchmark/benchmark_inc.h"
-#include "benchmark/benchmark_inc.c"
+#include "../benchmark/benchmark_inc.h"
+#include "../benchmark/benchmark_inc.c"
 
 typedef void Assmebly_Function(u64 count, u64 *data);
 
@@ -14,17 +14,23 @@ struct Assmebly_Entry
   Assmebly_Function *function;
 };
 
-extern void write1_asm(u64 count, u64 *data);
-extern void write2_asm(u64 count, u64 *data);
-extern void write3_asm(u64 count, u64 *data);
-extern void write4_asm(u64 count, u64 *data);
+extern void read1_asm(u64 count, u64 *data);
+extern void read2_asm(u64 count, u64 *data);
+extern void read3_asm(u64 count, u64 *data);
+extern void read3real_asm(u64 count, u64 *data);
+extern void read4_asm(u64 count, u64 *data);
+extern void read1x2_asm(u64 count, u64 *data);
+extern void read8x2_asm(u64 count, u64 *data);
 
 Assembly_Entry test_entries[] =
 {
-  {String("write1"), write1_asm},
-  {String("write2"), write2_asm},
-  {String("write3"), write3_asm},
-  {String("write4"), write4_asm},
+  {String("read1"), read1_asm},
+  {String("read2"), read2_asm},
+  {String("read3"), read3_asm},
+  {String("read3real"), read3real_asm},
+  // {String("read4"), read4_asm},
+  // {String("read1x2"), read1x2_asm},
+  // {String("read8x2"), read8x2_asm},
 };
 
 int main(int arg_count, char **args)
@@ -34,13 +40,13 @@ int main(int arg_count, char **args)
     printf("Usage: %s [seconds_to_try_for_min]\n", args[0]);
   }
 
-  u64 count = GB(1);
+  u64 count = 1024 * 1024 * 1024;
 
   u64 cpu_timer_frequency = estimate_cpu_timer_freq();
 
   u32 seconds_to_try_for_min = atoi(args[1]);
 
-  u64 data = 10;
+  u64 data[256] = {10};
 
   while (true)
   {
@@ -59,7 +65,7 @@ int main(int arg_count, char **args)
       while (repetition_tester_is_testing(tester))
       {
         repetition_tester_begin_time(tester);
-        entry->function(count, &data);
+        entry->function(count, data);
         repetition_tester_close_time(tester);
 
         repetition_tester_count_bytes(tester, count);

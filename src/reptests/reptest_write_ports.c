@@ -1,11 +1,11 @@
 #define LOG_TITLE "REPETITION_TESTER"
 #define COMMON_IMPLEMENTATION
-#include "common.h"
+#include "../common.h"
 
-#include "benchmark/benchmark_inc.h"
-#include "benchmark/benchmark_inc.c"
+#include "../benchmark/benchmark_inc.h"
+#include "../benchmark/benchmark_inc.c"
 
-typedef void Assmebly_Function(void);
+typedef void Assmebly_Function(u64 count, u64 *data);
 
 typedef struct Assmebly_Entry Assembly_Entry;
 struct Assmebly_Entry
@@ -14,13 +14,17 @@ struct Assmebly_Entry
   Assmebly_Function *function;
 };
 
-extern void rat_add_asm(void);
-extern void rat_mov_add_asm(void);
+extern void write1_asm(u64 count, u64 *data);
+extern void write2_asm(u64 count, u64 *data);
+extern void write3_asm(u64 count, u64 *data);
+extern void write4_asm(u64 count, u64 *data);
 
 Assembly_Entry test_entries[] =
 {
-  {String("add"),     rat_add_asm},
-  {String("mov+add"), rat_mov_add_asm},
+  {String("write1"), write1_asm},
+  {String("write2"), write2_asm},
+  {String("write3"), write3_asm},
+  {String("write4"), write4_asm},
 };
 
 int main(int arg_count, char **args)
@@ -30,11 +34,13 @@ int main(int arg_count, char **args)
     printf("Usage: %s [seconds_to_try_for_min]\n", args[0]);
   }
 
-  u64 count = 1000000000;
+  u64 count = GB(1);
 
   u64 cpu_timer_frequency = estimate_cpu_timer_freq();
 
   u32 seconds_to_try_for_min = atoi(args[1]);
+
+  u64 data = 10;
 
   while (true)
   {
@@ -53,7 +59,7 @@ int main(int arg_count, char **args)
       while (repetition_tester_is_testing(tester))
       {
         repetition_tester_begin_time(tester);
-        entry->function();
+        entry->function(count, &data);
         repetition_tester_close_time(tester);
 
         repetition_tester_count_bytes(tester, count);
