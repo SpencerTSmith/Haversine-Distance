@@ -37,7 +37,7 @@ int main(int args_count, char **args)
   String source = {0};
   PROFILE_SCOPE_BANDWIDTH("read", file_size(args[1]))
   {
-    source = read_file_to_arena(&arena, args[1]);
+    source = read_file_to_arena(&arena, string_from_c_string(args[1]));
   }
 
   usize min_pair_bytes = 6 * 4; // 6 chars for something like "x0:0" (at least) and 4 of those
@@ -80,7 +80,7 @@ int main(int args_count, char **args)
   PROFILE_SCOPE("check")
   {
     // Get solutions out of binary dump and verify
-    String solution_dump = read_file_to_arena(&arena, args[2]);
+    String solution_dump = read_file_to_arena(&arena, string_from_c_string(args[2]));
     if (solution_dump.count >= sizeof(f64) + sizeof(i32))
     {
       f64 solution_sum = *(f64 *)solution_dump.v;

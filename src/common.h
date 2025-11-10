@@ -127,15 +127,15 @@ typedef ptrdiff_t isize;
 // You may prefer to do it in the traditional using the above ENUM_* macros
 //
 // NOTE: Idea from https://philliptrudeau.com/blog/x-macro
-#define ENUM_TABLE(Enum_Name)                  \
-  typedef enum Enum_Name                       \
-  { Enum_Name(ENUM_MEMBER) } Enum_Name;        \
+#define ENUM_TABLE(Enum_Name)                        \
+  typedef enum Enum_Name                             \
+  { Enum_Name(ENUM_MEMBER) } Enum_Name;              \
   static const char *CONCAT(Enum_Name, _strings)[] = \
   { Enum_Name(ENUM_STRING) };
 
 // UGLY! For quick regression tests
-#define PRINT_EVAL(label, expr)            \
-  printf("[%s]: %s\n", (label), (expr) ? \
+#define PRINT_EVAL(label, expr)                   \
+  printf("[%s]: %s\n", (label), (expr) ?          \
          ANSI_GREEN "PASS :)" ANSI_RESET        : \
          ANSI_RED "FAIL :( @" __FILE__":" STRINGIFY(__LINE__)"\n" "  Expression: " #expr ANSI_RESET)
 
@@ -147,7 +147,7 @@ typedef ptrdiff_t isize;
 typedef struct Type##_Array Type##_Array; \
 struct Type##_Array                       \
 {                                         \
-  Type  *v;                            \
+  Type  *v;                               \
   usize count;                            \
 }
 
@@ -380,8 +380,8 @@ void arena_clear(Arena *arena);
 
 // NOTE: EVIL! Macro VOODOO... too much? We will see...
 // Only works when building contiguously, IE use a linked list (Type_List), or rethink, if can't guarantee that
-// May add reloaction later... but maybe not
-// Probably also slow than needs to be as we need to go through alloc path for individual elements
+// May add relocation later... but maybe not
+// Probably also slower than needs to be as we need to go through alloc path for individual elements
 #define array_add(a, array, new)                                                                 \
   !((array).v) ?                                                                                 \
     ((array).v = arena_alloc((a), sizeof((array).v[0]), alignof((array).v[0])),                  \
@@ -407,9 +407,9 @@ void arena_clear(Arena *arena);
 // Helpers specific to the DEFINE_LIST() structures, that is, they assume the naming
 // scheme and also increment the count
 #define list_push_first(list, new_node) \
-  ((list).count += 1, SLL_push_first((list).first, (list).last, new_node, link_next))
+  ((list).count++, SLL_push_first((list).first, (list).last, new_node, link_next))
 #define list_push_last(list, new_node) \
-  ((list).count += 1, SLL_push_last((list).first, (list).last, new_node, link_next))
+  ((list).count++, SLL_push_last((list).first, (list).last, new_node, link_next))
 
 // We just want some temporary memory
 // ie we save the offset we wish to return to after using this arena as a scratch pad
@@ -429,6 +429,8 @@ void scratch_close(Scratch *scratch);
 
 #define String(s) (String){(u8 *)(s), STATIC_COUNT(s) - 1}
 #define String_Format(s) (int)(s).count, (s).v
+#define str(s) String((s))
+#define strf(s) String_Format((s))
 
 b32 char_is_whitespace(u8 c);
 b32 char_is_digit(u8 c);
@@ -452,13 +454,16 @@ char *string_to_c_string(Arena *arena, String string);
 String_Array string_split(Arena *arena, String string, String delimiter);
 String_Array string_split_whitepace(Arena *arena, String string);
 
+String string_join_array(Arena *arena, String_Array array, String separator);
+String string_join_list(Arena *arena, String_List list, String separator);
+
 // Only useful if you know exactly how big the file is ahead of time, otherwise probably put on an arena if don't know...
 // or use file_size()
 usize read_file_to_memory(const char *name, u8 *buffer, usize buffer_size);
 usize file_size(const char *name);
 
 // Reads the entire thing and returns a String (just a byte slice)
-String read_file_to_arena(Arena *arena, const char *name);
+String read_file_to_arena(Arena *arena, String name);
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // ARGUMENTS
@@ -505,7 +510,7 @@ String_Array args_get_option_values(Args *table, String option);
 // IMPLEMENT
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// #define COMMON_IMPLEMENTATION
+#define COMMON_IMPLEMENTATION
 #ifdef COMMON_IMPLEMENTATION
 // Returns size of file, or 0 if it can't open the file
 usize read_file_to_memory(const char *name, u8 *buffer, usize buffer_size)
@@ -552,15 +557,18 @@ usize file_size(const char *name)
   return size;
 }
 
-String read_file_to_arena(Arena *arena, const char *name)
+String read_file_to_arena(Arena *arena, String name)
 {
-  usize buffer_size = file_size(name);
-
   // Just in case we fail reading we won't commit any allocations
   Arena save = *arena;
+
+  char *_name = string_to_c_string(arena, name); // Ugh
+
+  usize buffer_size = file_size(_name);
+
   u8 *buffer = arena_calloc(arena, buffer_size, u8);
 
-  if (read_file_to_memory(name, buffer, buffer_size) != buffer_size)
+  if (read_file_to_memory(_name, buffer, buffer_size) != buffer_size)
   {
     LOG_ERROR("Unable to read file: %s", name);
     *arena = save; // Rollback allocation
@@ -765,15 +773,21 @@ String_Array string_split_whitepace(Arena *arena, String string)
   for (usize i = 0; i < string.count;)
   {
     usize start = i;
-    while (start < string.count && char_is_whitespace(string.v[start]))
+    for (; start < string.count; start++)
     {
-      start += 1;
+      if (!char_is_whitespace(string.v[start]))
+      {
+        break;
+      }
     }
 
     usize stop = start;
-    while (stop < string.count && !char_is_whitespace(string.v[stop]))
+    for (; stop < string.count; stop++)
     {
-      stop += 1;
+      if (char_is_whitespace(string.v[stop]))
+      {
+        break;
+      }
     }
 
     if (start < stop) // No empties
@@ -783,6 +797,80 @@ String_Array string_split_whitepace(Arena *arena, String string)
     }
 
     i = stop + 1;
+  }
+
+  return result;
+}
+
+String string_join_array(Arena *arena, String_Array array, String separator)
+{
+  String result = {0};
+
+  // Perhaps the string data structures ought to just carry around this info so don't need to do a count pass
+  usize array_total_char_count = 0;
+  for (usize i = 0; i < array.count; i++)
+  {
+    array_total_char_count += array.v[i].count;
+  }
+
+  usize join_total_char_count = 0;
+  if (array.count > 0)
+  {
+    join_total_char_count = (array.count - 1) * separator.count;
+  }
+
+  result.count = array_total_char_count + join_total_char_count;
+  result.v = arena_calloc(arena, result.count, u8);
+
+  // Over all but the last
+  u8 *cursor = result.v;
+  for (usize i = 0; i < array.count; i++)
+  {
+    String to_copy = array.v[i];
+    MEM_COPY(cursor, to_copy.v, to_copy.count);
+    cursor += to_copy.count;
+
+    // Last string doesn't get a separator
+    if (i != array.count - 1)
+    {
+      MEM_COPY(cursor, separator.v, separator.count);
+      cursor += separator.count;
+    }
+  }
+
+  return result;
+}
+
+String string_join_list(Arena *arena, String_List list, String separator)
+{
+  String result = {0};
+
+  // Perhaps the string data structures ought to just carry around this info so don't need to do a count pass
+  usize list_total_char_count = 0;
+  for (String_Node *node = list.first; node; node = node->link_next)
+  {
+    list_total_char_count += node->value.count;
+  }
+
+  usize join_total_char_count = (list.count - 1) * separator.count;
+
+  result.count = list_total_char_count + join_total_char_count;
+  result.v = arena_calloc(arena, result.count, u8);
+
+  // Over all but the last
+  u8 *cursor = result.v;
+  for (String_Node *node = list.first; node; node = node->link_next)
+  {
+    String to_copy = node->value;
+    MEM_COPY(cursor, to_copy.v, to_copy.count);
+    cursor += to_copy.count;
+
+    // Last string doesn't get a separator
+    if (node->link_next)
+    {
+      MEM_COPY(cursor, separator.v, separator.count);
+      cursor += separator.count;
+    }
   }
 
   return result;
@@ -892,7 +980,7 @@ Arena __arena_make(Arena_Args *args)
 
   Arena arena = {0};
 
-  arena.base = (u8 *)os_allocate(res, 0);
+  arena.base = (u8 *)os_allocate(res, (OS_Allocation_Flags)0);
 
   // Maybe we do something more gracefully, as this won't be compiled in when DEBUG not defined
   ASSERT(arena.base, "Failed to allocate arena memory (%.*s:%ld)",
@@ -1041,6 +1129,7 @@ Arg_Option *insert_arg_option(Arena *arena, Args *args, String name, String_Arra
     if (bucket->name.v)
     {
       result = arena_new(arena, Arg_Option);
+
       // Insert at head
       result->hash_next = bucket->hash_next;
       bucket->hash_next = result;
