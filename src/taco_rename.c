@@ -5,7 +5,8 @@ struct
 {
   String name;
   String rename;
-} rename_pairs[] =
+}
+rename_pairs[] =
 {
   {str("int"), str("i32")},
   {str("int32_t"), str("i32")},

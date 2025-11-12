@@ -945,8 +945,7 @@ void *os_allocate(usize size, OS_Allocation_Flags flags)
 
 b32 os_commit(void *start, usize size)
 {
-  mprotect(start, size, PROT_READ|PROT_WRITE);
-  return true;
+  return mprotect(start, size, PROT_READ|PROT_WRITE) == 0;
 }
 
 void os_deallocate(void *start, usize size)

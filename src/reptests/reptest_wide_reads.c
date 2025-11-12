@@ -14,23 +14,18 @@ struct Assmebly_Entry
   Assmebly_Function *function;
 };
 
-extern void read1_asm(u64 count, u64 *data);
-extern void read2_asm(u64 count, u64 *data);
-extern void read3_asm(u64 count, u64 *data);
-extern void read3real_asm(u64 count, u64 *data);
-extern void read4_asm(u64 count, u64 *data);
-extern void read1x2_asm(u64 count, u64 *data);
-extern void read8x2_asm(u64 count, u64 *data);
+extern void read32_asm(u64 count, u64 *data);
+extern void read64_asm(u64 count, u64 *data);
+extern void read128_asm(u64 count, u64 *data);
+extern void read256_asm(u64 count, u64 *data);
+// extern void read512_asm(u64 count, u64 *data);
 
 Assembly_Entry test_entries[] =
 {
-  // {String("read1"), read1_asm},
-  // {String("read2"), read2_asm},
-  // {String("read3"), read3_asm},
-  {String("read3real"), read3real_asm},
-  // {String("read4"), read4_asm},
-  // {String("read1x2"), read1x2_asm},
-  // {String("read8x2"), read8x2_asm},
+  {str("read32_asm"), read32_asm},
+  {str("read64_asm"), read64_asm},
+  {str("read128_asm"), read128_asm},
+  {str("read256_asm"), read256_asm},
 };
 
 int main(int arg_count, char **args)

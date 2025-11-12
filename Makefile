@@ -88,3 +88,15 @@ reptest-write-ports: bin-folder
 	ar rcs bin/reptest_write_ports.a bin/reptest_write_ports.o
 	gcc ${CFLAGS} src/reptests/reptest_write_ports.c bin/reptest_write_ports.a -o bin/reptest_write_ports.x
 	bin/reptest_write_ports.x $(TRY_FOR_MIN_TIME)
+
+reptest-wide-reads: bin-folder
+	nasm -f elf64 -o bin/reptest_wide_reads.o src/reptests/reptest_wide_reads.asm
+	ar rcs bin/reptest_wide_reads.a bin/reptest_wide_reads.o
+	gcc ${CFLAGS} src/reptests/reptest_wide_reads.c bin/reptest_wide_reads.a -o bin/reptest_wide_reads.x
+	bin/reptest_wide_reads.x $(TRY_FOR_MIN_TIME)
+
+reptest-cache-bandwidth: bin-folder
+	nasm -f elf64 -o bin/reptest_cache_bandwidth.o src/reptests/reptest_cache_bandwidth.asm
+	ar rcs bin/reptest_cache_bandwidth.a bin/reptest_cache_bandwidth.o
+	gcc ${CFLAGS} src/reptests/reptest_cache_bandwidth.c bin/reptest_cache_bandwidth.a -o bin/reptest_cache_bandwidth.x
+	bin/reptest_cache_bandwidth.x $(TRY_FOR_MIN_TIME)

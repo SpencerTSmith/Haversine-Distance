@@ -5,7 +5,7 @@
 #include "../benchmark/benchmark_inc.h"
 #include "../benchmark/benchmark_inc.c"
 
-typedef void Assmebly_Function(u64 count, u64 *data);
+typedef void Assmebly_Function(u64 count, u8 *data);
 
 typedef struct Assmebly_Entry Assembly_Entry;
 struct Assmebly_Entry
@@ -14,23 +14,15 @@ struct Assmebly_Entry
   Assmebly_Function *function;
 };
 
-extern void read1_asm(u64 count, u64 *data);
-extern void read2_asm(u64 count, u64 *data);
-extern void read3_asm(u64 count, u64 *data);
-extern void read3real_asm(u64 count, u64 *data);
-extern void read4_asm(u64 count, u64 *data);
-extern void read1x2_asm(u64 count, u64 *data);
-extern void read8x2_asm(u64 count, u64 *data);
+extern void readL1_asm(u64 count, u8 *data);
+extern void readL2_asm(u64 count, u8 *data);
+extern void readL3_asm(u64 count, u8 *data);
 
 Assembly_Entry test_entries[] =
 {
-  // {String("read1"), read1_asm},
-  // {String("read2"), read2_asm},
-  // {String("read3"), read3_asm},
-  {String("read3real"), read3real_asm},
-  // {String("read4"), read4_asm},
-  // {String("read1x2"), read1x2_asm},
-  // {String("read8x2"), read8x2_asm},
+  {str("readL1"), readL1_asm},
+  {str("readL2"), readL2_asm},
+  {str("readL3"), readL3_asm},
 };
 
 int main(int arg_count, char **args)
@@ -40,13 +32,13 @@ int main(int arg_count, char **args)
     printf("Usage: %s [seconds_to_try_for_min]\n", args[0]);
   }
 
-  u64 count = 1024 * 1024 * 1024;
+  u64 count = GB(1);
 
   u64 cpu_timer_frequency = estimate_cpu_timer_freq();
 
   u32 seconds_to_try_for_min = atoi(args[1]);
 
-  u64 data[256] = {10};
+  u8 *data = os_allocate(count, OS_ALLOCATION_COMMIT|OS_ALLOCATION_PREFAULT);
 
   while (true)
   {
