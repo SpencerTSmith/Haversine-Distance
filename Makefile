@@ -3,11 +3,12 @@ SHELL := bash
 ON_WARNINGS := -Wall -Wextra -Wshadow -Wpointer-arith -Wcast-align -Wredundant-decls
 NO_WARNINGS := -Wno-unused-parameter -Wno-unused-function -Wno-override-init
 
-OPTIMIZATION := -O0
+OPTIMIZATION := -O2
 
 CFLAGS := -g -std=c11 -DDEBUG -DPROFILE ${ON_WARNINGS} ${NO_WARNINGS} ${OPTIMIZATION}
 
-TRY_FOR_MIN_TIME := 10
+# Lucky number
+TRY_FOR_MIN_TIME := 7
 
 bin-folder:
 	mkdir -p bin

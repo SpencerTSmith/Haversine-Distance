@@ -5,25 +5,7 @@
 #include "../benchmark/benchmark_inc.h"
 #include "../benchmark/benchmark_inc.c"
 
-typedef void Assmebly_Function(u64 count, u8 *data);
-
-typedef struct Assmebly_Entry Assembly_Entry;
-struct Assmebly_Entry
-{
-  String name;
-  Assmebly_Function *function;
-};
-
-extern void readL1_asm(u64 count, u8 *data);
-extern void readL2_asm(u64 count, u8 *data);
-extern void readL3_asm(u64 count, u8 *data);
-
-Assembly_Entry test_entries[] =
-{
-  {str("readL1"), readL1_asm},
-  {str("readL2"), readL2_asm},
-  {str("readL3"), readL3_asm},
-};
+extern void read_mask_asm(u64 count, u8 *data, u64 mask);
 
 int main(int arg_count, char **args)
 {
@@ -33,35 +15,41 @@ int main(int arg_count, char **args)
   }
 
   u64 count = GB(1);
+  u8 *data = os_allocate(count, OS_ALLOCATION_COMMIT|OS_ALLOCATION_PREFAULT);
+  for (usize i = 0; i < count; i++)
+  {
+    data[i] = (u8)i;
+  }
 
   u64 cpu_timer_frequency = estimate_cpu_timer_freq();
 
   u32 seconds_to_try_for_min = atoi(args[1]);
 
-  u8 *data = os_allocate(count, OS_ALLOCATION_COMMIT|OS_ALLOCATION_PREFAULT);
+  Repetition_Tester testers[30] = {0}; // 1 GB max 2^30 = 1G
 
-  while (true)
+  // Start at 1KB
+  for (usize region_shift = 10; region_shift < STATIC_COUNT(testers); region_shift++)
   {
-    Repetition_Tester testers[STATIC_ARRAY_COUNT(test_entries)] = {0};
+    Repetition_Tester *tester = testers + region_shift;
 
-    for (usize func_idx = 0; func_idx < STATIC_ARRAY_COUNT(test_entries); func_idx++)
+    u64 region = (1L << region_shift);
+    u64 mask   = region - 1;
+
+    printf("\n--- Reading within %lu kb ---\n", region/1024);
+    printf("                                                          \r");
+
+
+    repetition_tester_new_wave(tester, count, cpu_timer_frequency, seconds_to_try_for_min);
+    while (repetition_tester_is_testing(tester))
     {
-      Repetition_Tester *tester = &testers[func_idx];
+      repetition_tester_begin_time(tester);
+      read_mask_asm(count, data, mask);
+      repetition_tester_close_time(tester);
 
-      Assembly_Entry *entry = &test_entries[func_idx];
-
-      printf("\n--- %.*s ---\n", String_Format(entry->name));
-      printf("                                                          \r");
-
-      repetition_tester_new_wave(tester, count, cpu_timer_frequency, seconds_to_try_for_min);
-      while (repetition_tester_is_testing(tester))
-      {
-        repetition_tester_begin_time(tester);
-        entry->function(count, data);
-        repetition_tester_close_time(tester);
-
-        repetition_tester_count_bytes(tester, count);
-      }
+      repetition_tester_count_bytes(tester, count);
     }
+
   }
+
+  os_deallocate(data, count);
 }
