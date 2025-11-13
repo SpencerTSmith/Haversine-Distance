@@ -26,7 +26,7 @@ Assembly_Entry test_entries[] =
 {
   // {String("read1"), read1_asm},
   // {String("read2"), read2_asm},
-  // {String("read3"), read3_asm},
+  {String("read3"), read3_asm},
   {String("read3real"), read3real_asm},
   // {String("read4"), read4_asm},
   // {String("read1x2"), read1x2_asm},

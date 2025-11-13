@@ -1,9 +1,4 @@
 global read_mask_asm
-; These are just best-guesses, probably use the above to exhaustively test
-global readL1_asm
-global readL2_asm
-global readL3_asm
-global readMM_asm
 
 section .text
 
@@ -14,6 +9,10 @@ read_mask_asm:
   mov rax, rsi
   align 64
 .loop:
+  ; Issue 512 bytes of loads to make absolutely sure that the load is
+  ; the bottleneck here, on my micro-architecture (golden-cove) we may issue 3 loads per cycle
+  ; The masking arithmetic takes 3 cycles so we need at least 9 loads,
+  ; so round up to 16 to keep the power 2 and modulo.
   vmovdqu ymm0, [rsi]
   vmovdqu ymm0, [rsi + 32]
   vmovdqu ymm0, [rsi + 64]
@@ -22,109 +21,21 @@ read_mask_asm:
   vmovdqu ymm0, [rsi + 160]
   vmovdqu ymm0, [rsi + 192]
   vmovdqu ymm0, [rsi + 224]
+  vmovdqu ymm0, [rsi + 256]
+  vmovdqu ymm0, [rsi + 288]
+  vmovdqu ymm0, [rsi + 320]
+  vmovdqu ymm0, [rsi + 352]
+  vmovdqu ymm0, [rsi + 384]
+  vmovdqu ymm0, [rsi + 416]
+  vmovdqu ymm0, [rsi + 448]
+  vmovdqu ymm0, [rsi + 480]
 
-  add rcx, 256
+  add rcx, 512
   and rcx, rdx ; Only up to 8kb
 
   mov rsi, rax
   add rsi, rcx
 
-  sub rdi, 256
-  jnz .loop
-  ret
-
-readL1_asm:
-  xor rcx, rcx
-  mov rax, rsi
-  align 64
-.loop:
-  vmovdqu ymm0, [rsi]
-  vmovdqu ymm0, [rsi + 32]
-  vmovdqu ymm0, [rsi + 64]
-  vmovdqu ymm0, [rsi + 96]
-  vmovdqu ymm0, [rsi + 128]
-  vmovdqu ymm0, [rsi + 160]
-  vmovdqu ymm0, [rsi + 192]
-  vmovdqu ymm0, [rsi + 224]
-
-  add rcx, 256
-  and rcx, 0x1fff ; Only up to 8kb
-
-  mov rsi, rax
-  add rsi, rcx
-
-  sub rdi, 256
-  jnz .loop
-  ret
-
-readL2_asm:
-  xor rcx, rcx
-  mov rax, rsi
-  align 64
-.loop:
-  vmovdqu ymm0, [rsi]
-  vmovdqu ymm0, [rsi + 32]
-  vmovdqu ymm0, [rsi + 64]
-  vmovdqu ymm0, [rsi + 96]
-  vmovdqu ymm0, [rsi + 128]
-  vmovdqu ymm0, [rsi + 160]
-  vmovdqu ymm0, [rsi + 192]
-  vmovdqu ymm0, [rsi + 224]
-
-  add rcx, 256
-  and rcx, 0xFFFFF ; Only up to 1mb
-
-  mov rsi, rax
-  add rsi, rcx
-
-  sub rdi, 256
-  jnz .loop
-  ret
-
-readL3_asm:
-  xor rcx, rcx
-  mov rax, rsi
-  align 64
-.loop:
-  vmovdqu ymm0, [rsi]
-  vmovdqu ymm0, [rsi + 32]
-  vmovdqu ymm0, [rsi + 64]
-  vmovdqu ymm0, [rsi + 96]
-  vmovdqu ymm0, [rsi + 128]
-  vmovdqu ymm0, [rsi + 160]
-  vmovdqu ymm0, [rsi + 192]
-  vmovdqu ymm0, [rsi + 224]
-
-  add rcx, 256
-  and rcx, 0xFFFFFF ; Only up to 16mb
-
-  mov rsi, rax
-  add rsi, rcx
-
-  sub rdi, 256
-  jnz .loop
-  ret
-
-readMM_asm:
-  xor rcx, rcx
-  mov rax, rsi
-  align 64
-.loop:
-  vmovdqu ymm0, [rsi]
-  vmovdqu ymm0, [rsi + 32]
-  vmovdqu ymm0, [rsi + 64]
-  vmovdqu ymm0, [rsi + 96]
-  vmovdqu ymm0, [rsi + 128]
-  vmovdqu ymm0, [rsi + 160]
-  vmovdqu ymm0, [rsi + 192]
-  vmovdqu ymm0, [rsi + 224]
-
-  add rcx, 256
-  ; No mask, read the whole 1 GB, should be main memory, unless caches get much bigger
-
-  mov rsi, rax
-  add rsi, rcx
-
-  sub rdi, 256
+  sub rdi, 512
   jnz .loop
   ret

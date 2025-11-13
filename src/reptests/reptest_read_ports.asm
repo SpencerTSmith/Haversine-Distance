@@ -39,8 +39,8 @@ read3real_asm:
   align 64
 .loop:
   mov rax, [rsi]
-  mov rax, [rsi + 136]
-  mov rax, [rsi + 222]
+  mov rax, [rsi + 32]
+  mov rax, [rsi + 64]
   sub rdi, 3
   jnle .loop
   ret

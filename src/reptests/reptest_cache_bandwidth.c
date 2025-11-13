@@ -16,10 +16,10 @@ int main(int arg_count, char **args)
 
   u64 count = GB(1);
   u8 *data = os_allocate(count, OS_ALLOCATION_COMMIT|OS_ALLOCATION_PREFAULT);
-  for (usize i = 0; i < count; i++)
-  {
-    data[i] = (u8)i;
-  }
+  // for (usize i = 0; i < count; i++)
+  // {
+  //   data[i] = (u8)i;
+  // }
 
   u64 cpu_timer_frequency = estimate_cpu_timer_freq();
 
@@ -48,7 +48,20 @@ int main(int arg_count, char **args)
 
       repetition_tester_count_bytes(tester, count);
     }
+  }
 
+  // Dump csv
+  printf("region(kb),gb_per_s\n");
+  for (usize region_shift = 10; region_shift < STATIC_COUNT(testers); region_shift++)
+  {
+    Repetition_Test_Values min = testers[region_shift].results.min;
+
+    u64 region = (1L << region_shift);
+
+    f64 seconds = cpu_time_in_seconds(min.v[REPTEST_VALUE_TIME], cpu_timer_frequency);
+    f64 gb_per_s = min.v[REPTEST_VALUE_BYTE_COUNT]  / (f64)GB(1) / seconds;
+
+    printf("%lu,%f\n", region/1024, gb_per_s);
   }
 
   os_deallocate(data, count);

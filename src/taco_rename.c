@@ -1,12 +1,8 @@
 #define COMMON_IMPLEMENTATION
 #include "common.h"
 
-struct
-{
-  String name;
-  String rename;
-}
-rename_pairs[] =
+// First of the pair is the thing to check for, second is the thing to replace with
+String rename_pairs[][2] =
 {
   {str("int"), str("i32")},
   {str("int32_t"), str("i32")},
@@ -40,9 +36,9 @@ int main(int argc, char **argv)
 
         for (usize rename_idx = 0; rename_idx < STATIC_COUNT(rename_pairs); rename_idx++)
         {
-          if (string_match(word, rename_pairs[rename_idx].name))
+          if (string_match(word, rename_pairs[rename_idx][0]))
           {
-            word = rename_pairs[rename_idx].rename;
+            word = rename_pairs[rename_idx][1];
             break;
           }
         }
