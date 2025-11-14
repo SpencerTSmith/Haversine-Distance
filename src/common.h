@@ -70,6 +70,7 @@ typedef ptrdiff_t isize;
 
 #define SWAP(a, b, T) STATEMENT( T __t = (a); (a) = (b); (b) = __t; )
 
+#define IS_POW2(a) ((((a) - 1) & (a)) == 0)
 #define ALIGN_POW2_UP(x, b) (((x) + (b) - 1) & (~((b) - 1)))
 
 #define PI 3.14159265358979323846
@@ -429,8 +430,8 @@ void scratch_close(Scratch *scratch);
 
 #define String(s) (String){(u8 *)(s), STATIC_COUNT(s) - 1}
 #define String_Format(s) (int)(s).count, (s).v
-#define str(s) String((s))
-#define strf(s) String_Format((s))
+#define STR(s) String((s))
+#define STRF(s) String_Format((s))
 
 b32 char_is_whitespace(u8 c);
 b32 char_is_digit(u8 c);

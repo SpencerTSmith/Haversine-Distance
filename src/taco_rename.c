@@ -4,8 +4,8 @@
 // First of the pair is the thing to check for, second is the thing to replace with
 String rename_pairs[][2] =
 {
-  {str("int"), str("i32")},
-  {str("int32_t"), str("i32")},
+  {STR("int"), STR("i32")},
+  {STR("int32_t"), STR("i32")},
 };
 
 int main(int argc, char **argv)
@@ -17,7 +17,7 @@ int main(int argc, char **argv)
   {
     String file = args.positionals[0];
 
-    printf("Renaming in %.*s\n", strf(file));
+    printf("Renaming in %.*s\n", STRF(file));
 
     String code = read_file_to_arena(&arena, file);
 
@@ -47,12 +47,12 @@ int main(int argc, char **argv)
       }
 
       String_Node *renamed_line = arena_new(&arena, String_Node);
-      renamed_line->value = string_join_array(&arena, renamed_words, str(" "));
+      renamed_line->value = string_join_array(&arena, renamed_words, STR(" "));
       list_push_last(result_lines, renamed_line);
     }
 
-    String result = string_join_list(&arena, result_lines, str("\n"));
-    printf("%.*s\n", strf(result));
+    String result = string_join_list(&arena, result_lines, STR("\n"));
+    printf("%.*s\n", STRF(result));
 
   }
   else
