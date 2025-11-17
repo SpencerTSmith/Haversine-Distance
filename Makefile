@@ -100,4 +100,4 @@ reptest-cache-bandwidth: bin-folder
 	nasm -f elf64 -o bin/reptest_cache_bandwidth.o src/reptests/reptest_cache_bandwidth.asm
 	ar rcs bin/reptest_cache_bandwidth.a bin/reptest_cache_bandwidth.o
 	gcc ${CFLAGS} src/reptests/reptest_cache_bandwidth.c bin/reptest_cache_bandwidth.a -o bin/reptest_cache_bandwidth.x
-	bin/reptest_cache_bandwidth.x $(TRY_FOR_MIN_TIME)
+	bin/reptest_cache_bandwidth.x $(TRY_FOR_MIN_TIME) granular
