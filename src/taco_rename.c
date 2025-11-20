@@ -6,6 +6,10 @@ String rename_pairs[][2] =
 {
   {STR("int"), STR("i32")},
   {STR("int32_t"), STR("i32")},
+  {STR("compute("), STR("matmul")},
+  {STR("*A,"), STR("*left,")},
+  {STR("*B"), STR("*right")},
+  {STR("*C,"), STR("*output,")},
 };
 
 int main(int argc, char **argv)
