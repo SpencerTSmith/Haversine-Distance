@@ -590,9 +590,24 @@ b32 char_is_whitespace(u8 c)
   return c == ' ' || c == '\n' || c == '\t' || c == '\r' || c == '\f' || c == '\v';
 }
 
+b32 char_is_lowercase(u8 c)
+{
+  return c >= 'a' && c <= 'z';
+}
+
+b32 char_is_uppercase(u8 c)
+{
+  return c >= 'A' && c <= 'Z';
+}
+
 b32 char_is_digit(u8 c)
 {
-  return c == '0' || c == '1' || c == '2' || c == '3' || c == '4' || c == '5' || c == '6' || c == '7' || c == '8' || c == '9';
+  return c >= '0' && c <= '9';
+}
+
+b32 char_is_alphabetic(u8 c)
+{
+  return char_is_uppercase(c) || char_is_lowercase(c);
 }
 
 b32 string_in_bounds(String string, usize at)
