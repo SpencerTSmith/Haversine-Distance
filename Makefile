@@ -39,6 +39,10 @@ test-arguments: bin-folder
 	gcc ${CFLAGS} src/tests/test_arguments.c -o bin/test_arguments.x
 	bin/test_arguments.x positional --verbose -v --foo --bar --baz=foo,bar,boo positional2 --bunk=bip,bop,bam,
 
+test-c-tokenize: bin-folder
+	gcc ${CFLAGS} src/tests/test_c_tokenize.c -o bin/test_c_tokenize.x
+	bin/test_c_tokenize.x
+
 reptest-file-apis: bin-folder
 	head -c 1G /dev/urandom > gb_file.txt
 	gcc ${CFLAGS} src/reptests/reptest_file_apis.c -o bin/reptest_file_apis.x

@@ -437,6 +437,7 @@ b32 char_is_whitespace(u8 c);
 b32 char_is_digit(u8 c);
 b32 char_is_alphabetic(u8 c);
 
+b32 string_in_bounds(String string, usize at);
 u32 string_hash_u32(String string);
 b32 string_match(String a, String b);
 b32 string_starts_with(String string, String prefix);
@@ -592,6 +593,11 @@ b32 char_is_whitespace(u8 c)
 b32 char_is_digit(u8 c)
 {
   return c == '0' || c == '1' || c == '2' || c == '3' || c == '4' || c == '5' || c == '6' || c == '7' || c == '8' || c == '9';
+}
+
+b32 string_in_bounds(String string, usize at)
+{
+  return at < string.count;
 }
 
 // TODO: Steal a better hash function
